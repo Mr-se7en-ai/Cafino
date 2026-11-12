@@ -1,0 +1,318 @@
+{
+    "setup_data": {
+        "cursor": "WyIyMDI1LTExLTIzIDE1OjQwOjM5Ljc3NjExMiswMCIsImk4MDg0OSJd",
+        "token": "eyJhbGciOiJIUzI1NiJ9.eyJjaWQiOiI2MWNmMGRiZi03NWQzLTQ4MzUtODMwZi1lODNmZDAwNWRjODkiLCJvaWQiOiI5ZTQ0ZTA5NC1mNDJkLTRlMGQtYmI2My0yMTM5MmY3NmE5MjMiLCJyb2xlIjoib3duZXIiLCJzdWIiOiJmMzY0NDcxYS0yN2Q5LTRmY2UtOTkzZC1kZjZiNzY3NzVmODYiLCJpc3MiOiJjYWZpbm8tYXBpIiwiYXVkIjoiY2FmaW5vLWFwcCIsImlhdCI6MTc5NDE0Njk3MywiZXhwIjoxNzk0MTUwNTczfQ.tO3tS_urKlm8kbQ6FDR2c7yQNr-hx7xGyegJYA21Tzk"
+    },
+    "root_group": {
+        "checks": {
+            "create_customer 2xx": {
+                "id": "5a400ec46c829f31110dab60f2fc7a29",
+                "passes": 61,
+                "fails": 0,
+                "name": "create_customer 2xx",
+                "path": "::create_customer 2xx"
+            },
+            "list_invoices_cursor_deep 2xx": {
+                "name": "list_invoices_cursor_deep 2xx",
+                "path": "::list_invoices_cursor_deep 2xx",
+                "id": "0f4a80eb4506284c76b1c773cb3ecec6",
+                "passes": 52,
+                "fails": 0
+            },
+            "create_payment 2xx": {
+                "name": "create_payment 2xx",
+                "path": "::create_payment 2xx",
+                "id": "f33c1dee8e6f3ec8357d7635123bb4d0",
+                "passes": 41,
+                "fails": 0
+            },
+            "me 2xx": {
+                "name": "me 2xx",
+                "path": "::me 2xx",
+                "id": "b422994b3467834830a26e4ca760fe72",
+                "passes": 37,
+                "fails": 0
+            },
+            "list_customers 2xx": {
+                "name": "list_customers 2xx",
+                "path": "::list_customers 2xx",
+                "id": "1b622d5fbbfa8c3c6f6bb8fe4e543885",
+                "passes": 223,
+                "fails": 0
+            },
+            "sync_pull 2xx": {
+                "name": "sync_pull 2xx",
+                "path": "::sync_pull 2xx",
+                "id": "a33e14dd0e004d81dc4ea8c9dd99649c",
+                "passes": 107,
+                "fails": 0
+            },
+            "list_invoices 2xx": {
+                "fails": 0,
+                "name": "list_invoices 2xx",
+                "path": "::list_invoices 2xx",
+                "id": "f210f766b1e489c9953b18d01f608b97",
+                "passes": 203
+            },
+            "list_payments 2xx": {
+                "name": "list_payments 2xx",
+                "path": "::list_payments 2xx",
+                "id": "daa30cea8aa0ba22af758e0e8cd7db15",
+                "passes": 84,
+                "fails": 0
+            },
+            "list_invoices_deep 2xx": {
+                "path": "::list_invoices_deep 2xx",
+                "id": "7ceb49169a9eabb735ec454c08da22f4",
+                "passes": 52,
+                "fails": 0,
+                "name": "list_invoices_deep 2xx"
+            },
+            "ledger 2xx": {
+                "passes": 46,
+                "fails": 0,
+                "name": "ledger 2xx",
+                "path": "::ledger 2xx",
+                "id": "d406085431127359d310ddac6dab955c"
+            },
+            "report_summary 2xx": {
+                "name": "report_summary 2xx",
+                "path": "::report_summary 2xx",
+                "id": "3c0fb08a211665b67670b8e20ee72286",
+                "passes": 114,
+                "fails": 0
+            }
+        },
+        "name": "",
+        "path": "",
+        "id": "d41d8cd98f00b204e9800998ecf8427e",
+        "groups": {}
+    },
+    "metrics": {
+        "http_req_duration": {
+            "p(95)": 8063.845992049999,
+            "p(99)": 8820.20185571,
+            "max": 9272.138875,
+            "avg": 2869.436021488259,
+            "min": 117.363743,
+            "med": 2446.1820095000003,
+            "p(90)": 5772.9039793
+        },
+        "reqs_total": {
+            "count": 1020,
+            "rate": 30.771043606975113
+        },
+        "http_req_receiving": {
+            "med": 0.117448,
+            "p(90)": 0.255422,
+            "p(95)": 0.3426460499999999,
+            "p(99)": 0.8295480099999989,
+            "max": 5.628827,
+            "avg": 0.16013203131115472,
+            "min": 0.01924
+        },
+        "lat_create_payment": {
+            "p(99)": 2348.2335786000003,
+            "max": 2425.961387,
+            "avg": 1449.408209,
+            "min": 228.035026,
+            "med": 1530.058236,
+            "p(90)": 1968.842036,
+            "p(95)": 2171.009345
+        },
+        "lat_sync_pull": {
+            "min": 614.396849,
+            "med": 2419.383111,
+            "p(90)": 2856.418648,
+            "p(95)": 2896.9698274999996,
+            "p(99)": 3158.4007386199996,
+            "max": 3384.685123,
+            "avg": 2369.4827448598135
+        },
+        "lat_list_invoices_deep": {
+            "p(99)": 3765.38596596,
+            "max": 3776.929716,
+            "avg": 2881.268163038462,
+            "min": 1399.250157,
+            "med": 2941.782782,
+            "p(90)": 3519.50351,
+            "p(95)": 3637.3101502
+        },
+        "http_req_connecting": {
+            "p(99)": 14.30376488999999,
+            "max": 16.270177,
+            "avg": 0.6895619960861058,
+            "min": 0,
+            "med": 0,
+            "p(90)": 0,
+            "p(95)": 6.795756199999998
+        },
+        "vus_max": {
+            "value": 100,
+            "min": 100,
+            "max": 100
+        },
+        "lat_list_customers": {
+            "avg": 2199.741634470853,
+            "min": 388.204069,
+            "med": 2199.908071,
+            "p(90)": 2672.7566068,
+            "p(95)": 2903.5533490999974,
+            "p(99)": 3075.52048136,
+            "max": 3148.847451
+        },
+        "lat_list_payments": {
+            "p(99)": 3496.03608793,
+            "max": 3500.271934,
+            "avg": 2532.9503248452384,
+            "min": 770.836563,
+            "med": 2546.911682,
+            "p(90)": 3263.2646585000007,
+            "p(95)": 3423.7685402999996
+        },
+        "http_req_tls_handshaking": {
+            "min": 0,
+            "med": 0,
+            "p(90)": 0,
+            "p(95)": 0,
+            "p(99)": 0,
+            "max": 0,
+            "avg": 0
+        },
+        "lat_ledger": {
+            "p(95)": 3655.58587675,
+            "p(99)": 3810.63512855,
+            "max": 3819.535292,
+            "avg": 2879.275376826087,
+            "min": 1883.294745,
+            "med": 2937.7565315,
+            "p(90)": 3494.723046
+        },
+        "lat_create_customer": {
+            "p(99)": 2581.9783534,
+            "max": 2593.50826,
+            "avg": 1460.0693287049185,
+            "min": 142.435859,
+            "med": 1519.538702,
+            "p(90)": 2005.291623,
+            "p(95)": 2179.886832
+        },
+        "http_req_sending": {
+            "p(90)": 0.15778929999999994,
+            "p(95)": 0.3607114499999996,
+            "p(99)": 1.1318413399999998,
+            "max": 2.742968,
+            "avg": 0.09129994031311153,
+            "min": 0.004937,
+            "med": 0.0272915
+        },
+        "lat_me": {
+            "p(90)": 2102.5335528,
+            "p(95)": 2456.523835,
+            "p(99)": 2827.2735974,
+            "max": 3029.459312,
+            "avg": 1626.1905636486488,
+            "min": 291.200002,
+            "med": 1739.963449
+        },
+        "vus": {
+            "value": 9,
+            "min": 9,
+            "max": 100
+        },
+        "http_req_failed": {
+            "passes": 0,
+            "fails": 1022,
+            "value": 0
+        },
+        "http_reqs": {
+            "count": 1022,
+            "rate": 30.831378986596633
+        },
+        "data_received": {
+            "count": 19558592,
+            "rate": 590037.5365912104
+        },
+        "http_req_duration{expected_response:true}": {
+            "p(95)": 8063.845992049999,
+            "p(99)": 8820.20185571,
+            "max": 9272.138875,
+            "avg": 2869.436021488259,
+            "min": 117.363743,
+            "med": 2446.1820095000003,
+            "p(90)": 5772.9039793
+        },
+        "data_sent": {
+            "count": 557795,
+            "rate": 16827.386537992825
+        },
+        "checks": {
+            "passes": 1020,
+            "fails": 0,
+            "value": 1
+        },
+        "lat_list_invoices": {
+            "p(99)": 3611.6285258199987,
+            "max": 3824.939647,
+            "avg": 2630.1939765911334,
+            "min": 707.793457,
+            "med": 2676.17248,
+            "p(90)": 3212.4525544000003,
+            "p(95)": 3312.3824752
+        },
+        "lat_report_summary": {
+            "avg": 7534.637273070172,
+            "min": 2965.882582,
+            "med": 7993.631089,
+            "p(90)": 8792.3626991,
+            "p(95)": 9009.7163012,
+            "p(99)": 9151.13350001,
+            "max": 9272.138875
+        },
+        "iterations": {
+            "count": 1020,
+            "rate": 30.771043606975113
+        },
+        "http_req_waiting": {
+            "med": 2445.9676259999997,
+            "p(90)": 5772.7009225,
+            "p(95)": 8063.71314505,
+            "p(99)": 8820.08573948,
+            "max": 9272.063365,
+            "avg": 2869.1845895166343,
+            "min": 117.143394
+        },
+        "errors": {
+            "passes": 0,
+            "fails": 1020,
+            "value": 0
+        },
+        "http_req_blocked": {
+            "max": 16.31918,
+            "avg": 0.7151947827788646,
+            "min": 0.002211,
+            "med": 0.006922,
+            "p(90)": 0.07982719999999967,
+            "p(95)": 6.966167499999989,
+            "p(99)": 14.326414539999991
+        },
+        "lat_list_invoices_cursor_deep": {
+            "p(95)": 2471.6130021499994,
+            "p(99)": 2583.282193,
+            "max": 2632.945585,
+            "avg": 1762.9208892500003,
+            "min": 192.339418,
+            "med": 1816.2802785,
+            "p(90)": 2213.9072655
+        },
+        "iteration_duration": {
+            "avg": 3078.414127983327,
+            "min": 354.15567,
+            "med": 2649.5968765,
+            "p(90)": 6004.1244261000065,
+            "p(95)": 8269.640255249999,
+            "p(99)": 9021.67225421,
+            "max": 9476.056744
+        }
+    }
+}

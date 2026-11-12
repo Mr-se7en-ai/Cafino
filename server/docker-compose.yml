@@ -1,0 +1,63 @@
+# اجرا:  cp .env.example .env  (JWT_SECRET، POSTGRES_PASSWORD و APP_DB_PASSWORD را پر کنید)  سپس  (از ریشهٔ مخزن)  npm run build  و بعد  cd server && docker compose up -d --build
+# پیش‌فرض امن: nginx فقط روی 127.0.0.1:8080 گوش می‌دهد؛ HTTPS را Caddy/nginx میزبان انجام می‌دهد (README-fa.md). برای آزمایش در شبکهٔ داخلی WEB_BIND=0.0.0.0
+x-logging: &logging
+  driver: json-file
+  options: { max-size: "10m", max-file: "5" }          # چرخش لاگ کانتینرها: هر سرویس حداکثر ۵۰ مگابایت
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: cafino
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD را در .env بنویسید}
+      POSTGRES_DB: cafino
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:?APP_DB_PASSWORD را در .env بنویسید (دست‌کم ۱۶ نویسه)}
+    command: ["postgres", "-c", "log_min_duration_statement=500", "-c", "log_lock_waits=on", "-c", "log_temp_files=10MB"]   # پرس‌وجوی کندتر از ۰٫۵ ثانیه، انتظار قفل و فایل موقت بزرگ در لاگ
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+      - ./deploy/initdb:/docker-entrypoint-initdb.d:ro    # ساخت نقش محدود cafino_app در اولین راه‌اندازی (برای پایگاه‌دادهٔ موجود: deploy/db-roles.sh)
+    logging: *logging
+    healthcheck: { test: ["CMD-SHELL", "pg_isready -U cafino -d cafino"], interval: 5s, timeout: 3s, retries: 20 }
+    networks: [internal]
+
+  api:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - uploads:/data/uploads                    # فایل‌های دریافتی از مشتری (QR) — در پشتیبان‌گیری از سرور هم لحاظ شود
+      - ./certs:/certs:ro                        # اگر DB_SSL=true با CA خصوصی: فایل را اینجا بگذارید و DB_SSL_CA_FILE=/certs/ca.pem
+    environment:
+      # API با نقش محدود (بدون DELETE/TRUNCATE/DDL روی جدول‌های مالی) کار می‌کند؛ مهاجرت‌ها با نقش مالک اجرا می‌شوند
+      DATABASE_URL: postgres://cafino_app:${APP_DB_PASSWORD}@db:5432/cafino
+      MIGRATION_DATABASE_URL: postgres://cafino:${POSTGRES_PASSWORD}@db:5432/cafino
+      APP_DB_ROLE: cafino_app
+    logging: *logging
+    depends_on: { db: { condition: service_healthy } }
+    networks: [internal]
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+
+  web:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    depends_on: [api]
+    ports: ["${WEB_BIND:-127.0.0.1}:${WEB_PORT:-8080}:80"]
+    logging: *logging
+    healthcheck: { test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/healthz >/dev/null || exit 1"], interval: 30s, timeout: 4s, retries: 3, start_period: 15s }
+    volumes:
+      - ./deploy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./deploy/csp.conf:/etc/nginx/csp.conf:ro
+      - ./deploy/trusted-proxies.conf:/etc/nginx/trusted-proxies.conf:ro
+      - ../dist/pwa:/usr/share/nginx/html:ro     # خروجی تأییدشدهٔ بیلد (npm run build → dist/pwa؛ دست‌نخورده می‌ماند تا هش‌ها معتبر باشند)
+      - ./deploy/config.js:/usr/share/nginx/html/config.js:ro   # تنظیمات این استقرار (same-origin)؛ جایگزین config.js داخل dist
+    networks: [internal]
+
+volumes:
+  dbdata:
+  uploads:
+networks:
+  internal:

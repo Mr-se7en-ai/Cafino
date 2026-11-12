@@ -1,0 +1,44 @@
+
+     ✓ sync_pull 2xx
+     ✓ ledger 2xx
+     ✓ list_invoices_cursor_deep 2xx
+     ✓ list_customers 2xx
+     ✓ list_payments 2xx
+     ✓ list_invoices 2xx
+     ✓ create_customer 2xx
+     ✓ me 2xx
+     ✓ create_payment 2xx
+     ✓ list_invoices_deep 2xx
+     ✓ report_summary 2xx
+
+     checks..........................: 100.00% 5928 out of 5928
+     data_received...................: 114 MB  3.7 MB/s
+     data_sent.......................: 3.2 MB  106 kB/s
+     errors..........................: 0.00%   0 out of 5928
+     http_req_blocked................: min=1.17µs   med=4.69µs   p(90)=6.94µs   p(95)=9.81µs   p(99)=7.03ms   max=44.19ms  avg=182.05µs
+     http_req_connecting.............: min=0s       med=0s       p(90)=0s       p(95)=0s       p(99)=7.01ms   max=44.1ms   avg=174.47µs
+     http_req_duration...............: min=1.84ms   med=241ms    p(90)=681.83ms p(95)=895.61ms p(99)=1.06s    max=1.32s    avg=308.75ms
+       { expected_response:true }....: min=1.84ms   med=241ms    p(90)=681.83ms p(95)=895.61ms p(99)=1.06s    max=1.32s    avg=308.75ms
+     http_req_failed.................: 0.00%   0 out of 5930
+     http_req_receiving..............: min=13.74µs  med=70.4µs   p(90)=203.76µs p(95)=300.87µs p(99)=703.82µs max=20.15ms  avg=114.74µs
+     http_req_sending................: min=3.21µs   med=14.76µs  p(90)=42.03µs  p(95)=100.87µs p(99)=616.19µs max=20.95ms  avg=66.56µs 
+     http_req_tls_handshaking........: min=0s       med=0s       p(90)=0s       p(95)=0s       p(99)=0s       max=0s       avg=0s      
+     http_req_waiting................: min=1.69ms   med=240.84ms p(90)=681.78ms p(95)=895.56ms p(99)=1.06s    max=1.32s    avg=308.57ms
+     http_reqs.......................: 5930    193.267721/s
+     iteration_duration..............: min=203.01ms med=443.2ms  p(90)=884.08ms p(95)=1.09s    p(99)=1.27s    max=1.52s    avg=510.6ms 
+     iterations......................: 5928    193.202538/s
+     lat_create_customer.............: min=17.25ms  med=161.69ms p(90)=246.86ms p(95)=273.22ms p(99)=313.25ms max=336.21ms avg=166.36ms
+     lat_create_payment..............: min=41.55ms  med=204.48ms p(90)=299.63ms p(95)=321.32ms p(99)=352.48ms max=381.75ms avg=205.59ms
+     lat_ledger......................: min=1.84ms   med=299.76ms p(90)=424.63ms p(95)=444.99ms p(99)=481.94ms max=512.24ms avg=294.29ms
+     lat_list_customers..............: min=4.94ms   med=223.36ms p(90)=328.15ms p(95)=353.54ms p(99)=394.74ms max=440.78ms avg=226.08ms
+     lat_list_invoices...............: min=37.66ms  med=254.99ms p(90)=351.09ms p(95)=374.23ms p(99)=421.76ms max=501.44ms avg=256.37ms
+     lat_list_invoices_cursor_deep...: min=16.28ms  med=145.07ms p(90)=224.01ms p(95)=237.48ms p(99)=268.05ms max=292.36ms avg=148.79ms
+     lat_list_invoices_deep..........: min=125.64ms med=526.76ms p(90)=726.06ms p(95)=793.96ms p(99)=890.7ms  max=1.03s    avg=527.6ms 
+     lat_list_payments...............: min=32.11ms  med=242.04ms p(90)=345.39ms p(95)=371.92ms p(99)=419.95ms max=452.43ms avg=243.06ms
+     lat_me..........................: min=36.33ms  med=148.96ms p(90)=227.62ms p(95)=254.62ms p(99)=281.13ms max=310.81ms avg=150.47ms
+     lat_report_summary..............: min=143.11ms med=876.5ms  p(90)=1.06s    p(95)=1.11s    p(99)=1.24s    max=1.32s    avg=849.62ms
+     lat_sync_pull...................: min=22.97ms  med=222.44ms p(90)=327.99ms p(95)=350.46ms p(99)=395.31ms max=410.88ms avg=226.13ms
+     reqs_total......................: 5928    193.202538/s
+     vus.............................: 100     min=100          max=100
+     vus_max.........................: 100     min=100          max=100
+

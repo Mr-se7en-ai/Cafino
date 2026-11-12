@@ -1,0 +1,49 @@
+﻿# Existing project rules
+src/tests/engine/.build/
+
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Build outputs
+dist/
+build/
+**/build/
+coverage/
+.cache/
+**/.gradle/
+
+# Capacitor generated files
+android/www/
+
+# Android local files
+**/local.properties
+**/.idea/
+**/captures/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Credentials and signing keys
+*.jks
+*.keystore
+*.pem
+*.p12
+key.properties
+google-services.json
+
+# Logs and temporary files
+*.log
+.DS_Store
+Thumbs.db
+
+# Generated application packages
+*.apk
+*.aab
+
+# Test private keys
+server/test/fixtures/*.key
+
+docs175/bench/**/*.creds.json

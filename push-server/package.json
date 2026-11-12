@@ -1,0 +1,19 @@
+{
+  "name": "cafino-push-server",
+  "version": "1.76.0",
+  "private": true,
+  "description": "سرویس اعلان (Web Push) کافینو — یادآورها را وقتی برنامه بسته است به مرورگر/موبایل می‌فرستد",
+  "type": "module",
+  "main": "server.js",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "keys": "node server.js --generate-keys",
+    "test": "node --test test/*.test.js"
+  },
+  "dependencies": {
+    "web-push": "^3.6.7"
+  }
+}

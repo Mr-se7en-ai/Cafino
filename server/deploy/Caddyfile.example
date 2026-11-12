@@ -1,0 +1,7 @@
+# /etc/caddy/Caddyfile — HTTPS خودکار (Let's Encrypt) + HSTS. دامنه باید به IP سرور اشاره کند و پورت‌های 80/443 باز باشند.
+cafino.example.com {
+	encode zstd gzip
+	header Strict-Transport-Security "max-age=31536000; includeSubDomains"
+	reverse_proxy 127.0.0.1:8080
+}
+# سپس در server/.env:  COOKIE_SECURE=true  TRUST_PROXY=1   و در deploy/trusted-proxies.conf:  set_real_ip_from 172.16.0.0/12;

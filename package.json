@@ -1,0 +1,39 @@
+{
+  "name": "work",
+  "version": "1.76.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "bash build.sh && node scripts/mkstandalone.mjs && node scripts/dist.mjs build",
+    "test": "node src/tests/engine/build.mjs && node --test src/tests/*.test.js src/tests/engine/*.test.js",
+    "test:e2e": "node e2e/pwa-offline.js",
+    "verify": "node src/tests/engine/build.mjs && node --test src/tests/*.test.js src/tests/engine/*.test.js",
+    "ci": "npm ci && npm run version:check && npm run build && npm test && npm run verify:dist",
+    "verify:dist": "node scripts/dist.mjs verify",
+    "version:check": "node scripts/version.mjs check"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "html2canvas": "^1.4.1",
+    "jspdf": "^4.2.1",
+    "lucide-react": "^1.60.0",
+    "pdf-lib": "^1.17.1",
+    "qrcode-generator": "^2.0.4",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2",
+    "eslint": "^9.39.5",
+    "eslint-plugin-react": "^7.37.5",
+    "globals": "^17.13.0",
+    "jsqr": "^1.4.0",
+    "playwright-core": "^1.64.1"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  }
+}

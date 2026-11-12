@@ -1,0 +1,318 @@
+{
+    "root_group": {
+        "groups": {},
+        "checks": {
+                "me 2xx": {
+                    "name": "me 2xx",
+                    "path": "::me 2xx",
+                    "id": "b422994b3467834830a26e4ca760fe72",
+                    "passes": 52,
+                    "fails": 0
+                },
+                "list_customers 2xx": {
+                    "passes": 298,
+                    "fails": 0,
+                    "name": "list_customers 2xx",
+                    "path": "::list_customers 2xx",
+                    "id": "1b622d5fbbfa8c3c6f6bb8fe4e543885"
+                },
+                "create_customer 2xx": {
+                    "path": "::create_customer 2xx",
+                    "id": "5a400ec46c829f31110dab60f2fc7a29",
+                    "passes": 80,
+                    "fails": 0,
+                    "name": "create_customer 2xx"
+                },
+                "list_invoices 2xx": {
+                    "path": "::list_invoices 2xx",
+                    "id": "f210f766b1e489c9953b18d01f608b97",
+                    "passes": 264,
+                    "fails": 0,
+                    "name": "list_invoices 2xx"
+                },
+                "report_summary 2xx": {
+                    "id": "3c0fb08a211665b67670b8e20ee72286",
+                    "passes": 168,
+                    "fails": 0,
+                    "name": "report_summary 2xx",
+                    "path": "::report_summary 2xx"
+                },
+                "list_payments 2xx": {
+                    "id": "daa30cea8aa0ba22af758e0e8cd7db15",
+                    "passes": 120,
+                    "fails": 0,
+                    "name": "list_payments 2xx",
+                    "path": "::list_payments 2xx"
+                },
+                "list_invoices_cursor_deep 2xx": {
+                    "path": "::list_invoices_cursor_deep 2xx",
+                    "id": "0f4a80eb4506284c76b1c773cb3ecec6",
+                    "passes": 86,
+                    "fails": 0,
+                    "name": "list_invoices_cursor_deep 2xx"
+                },
+                "sync_pull 2xx": {
+                    "name": "sync_pull 2xx",
+                    "path": "::sync_pull 2xx",
+                    "id": "a33e14dd0e004d81dc4ea8c9dd99649c",
+                    "passes": 126,
+                    "fails": 0
+                },
+                "create_payment 2xx": {
+                    "name": "create_payment 2xx",
+                    "path": "::create_payment 2xx",
+                    "id": "f33c1dee8e6f3ec8357d7635123bb4d0",
+                    "passes": 54,
+                    "fails": 0
+                },
+                "list_invoices_deep 2xx": {
+                    "name": "list_invoices_deep 2xx",
+                    "path": "::list_invoices_deep 2xx",
+                    "id": "7ceb49169a9eabb735ec454c08da22f4",
+                    "passes": 68,
+                    "fails": 0
+                },
+                "ledger 2xx": {
+                    "fails": 0,
+                    "name": "ledger 2xx",
+                    "path": "::ledger 2xx",
+                    "id": "d406085431127359d310ddac6dab955c",
+                    "passes": 50
+                }
+            },
+        "name": "",
+        "path": "",
+        "id": "d41d8cd98f00b204e9800998ecf8427e"
+    },
+    "metrics": {
+        "http_reqs": {
+            "rate": 44.924678992078135,
+            "count": 1368
+        },
+        "reqs_total": {
+            "count": 1366,
+            "rate": 44.85899963682656
+        },
+        "lat_list_invoices_cursor_deep": {
+            "min": 2.535317,
+            "med": 3.9056395,
+            "p(90)": 7.125201000000001,
+            "p(95)": 7.87086025,
+            "p(99)": 12.931287400000045,
+            "max": 19.741416,
+            "avg": 4.652963069767443
+        },
+        "http_req_connecting": {
+            "p(99)": 0,
+            "max": 2.708504,
+            "avg": 0.014893280701754386,
+            "min": 0,
+            "med": 0,
+            "p(90)": 0,
+            "p(95)": 0
+        },
+        "lat_list_invoices_deep": {
+            "p(99)": 164.00616046999994,
+            "max": 187.360993,
+            "avg": 75.09505886764707,
+            "min": 23.952342,
+            "med": 72.5448895,
+            "p(90)": 121.987637,
+            "p(95)": 132.24912799999998
+        },
+        "http_req_tls_handshaking": {
+            "max": 0,
+            "avg": 0,
+            "min": 0,
+            "med": 0,
+            "p(90)": 0,
+            "p(95)": 0,
+            "p(99)": 0
+        },
+        "errors": {
+            "fails": 1366,
+            "passes": 0,
+            "value": 0
+        },
+        "iterations": {
+            "count": 1366,
+            "rate": 44.85899963682656
+        },
+        "http_req_blocked": {
+            "min": 0.001811,
+            "med": 0.006647999999999999,
+            "p(90)": 0.009798399999999997,
+            "p(95)": 0.013984049999999998,
+            "p(99)": 0.08207578999999854,
+            "max": 5.04393,
+            "avg": 0.026840435672514668
+        },
+        "http_req_failed": {
+            "fails": 1368,
+            "passes": 0,
+            "value": 0
+        },
+        "data_sent": {
+            "count": 746564,
+            "rate": 24516.921087018876
+        },
+        "checks": {
+            "passes": 1366,
+            "fails": 0,
+            "value": 1
+        },
+        "http_req_duration": {
+            "max": 200.720906,
+            "avg": 19.49120128654972,
+            "min": 1.553278,
+            "med": 9.5468835,
+            "p(90)": 56.3534362,
+            "p(95)": 69.00525239999999,
+            "p(99)": 117.5881731099999
+        },
+        "lat_list_customers": {
+            "p(99)": 22.1963477699999,
+            "max": 89.073692,
+            "avg": 7.756829352348995,
+            "min": 3.399822,
+            "med": 6.5241185,
+            "p(90)": 11.1690208,
+            "p(95)": 12.78817015
+        },
+        "vus_max": {
+            "value": 10,
+            "min": 10,
+            "max": 10
+        },
+        "lat_report_summary": {
+            "max": 200.720906,
+            "avg": 59.455321095238105,
+            "min": 36.681633,
+            "med": 55.92282,
+            "p(90)": 73.0984352,
+            "p(95)": 90.44231355,
+            "p(99)": 178.47856811000025
+        },
+        "lat_list_payments": {
+            "min": 7.378746,
+            "med": 11.7944775,
+            "p(90)": 16.674780400000003,
+            "p(95)": 18.756441599999988,
+            "p(99)": 29.040575450000006,
+            "max": 35.850639,
+            "avg": 12.564897333333333
+        },
+        "lat_me": {
+            "med": 2.6724435,
+            "p(90)": 6.887273999999999,
+            "p(95)": 14.36096039999995,
+            "p(99)": 46.71822539000008,
+            "max": 66.614912,
+            "avg": 5.253821846153846,
+            "min": 1.553278
+        },
+        "http_req_sending": {
+            "min": 0.004967,
+            "med": 0.0275655,
+            "p(90)": 0.05409389999999999,
+            "p(95)": 0.07055404999999981,
+            "p(99)": 0.282643049999998,
+            "max": 2.890936,
+            "avg": 0.038499591374269095
+        },
+        "http_req_receiving": {
+            "med": 0.098786,
+            "p(90)": 0.1751162,
+            "p(95)": 0.24192144999999926,
+            "p(99)": 0.756627049999996,
+            "max": 3.341209,
+            "avg": 0.13030547295321634,
+            "min": 0.023024
+        },
+        "data_received": {
+            "count": 25044256,
+            "rate": 822445.2934177096
+        },
+        "http_req_waiting": {
+            "max": 200.237987,
+            "avg": 19.322396222222235,
+            "min": 1.480715,
+            "med": 9.3939185,
+            "p(90)": 56.249440299999996,
+            "p(95)": 68.89387644999998,
+            "p(99)": 117.4018682799999
+        },
+        "lat_create_customer": {
+            "min": 3.076072,
+            "med": 6.548476,
+            "p(90)": 14.735672000000001,
+            "p(95)": 23.709449099999965,
+            "p(99)": 115.97735511999977,
+            "max": 144.527538,
+            "avg": 11.967156349999996
+        },
+        "iteration_duration": {
+            "med": 210.54513450000002,
+            "p(90)": 256.969704,
+            "p(95)": 269.57741375,
+            "p(99)": 317.33347859999986,
+            "max": 404.285823,
+            "avg": 220.44154561712998,
+            "min": 201.886612
+        },
+        "lat_list_invoices": {
+            "max": 106.585592,
+            "avg": 14.20824901893939,
+            "min": 7.424322,
+            "med": 12.5639485,
+            "p(90)": 22.002530300000004,
+            "p(95)": 25.582623299999998,
+            "p(99)": 34.59684323
+        },
+        "lat_ledger": {
+            "max": 13.898737,
+            "avg": 5.630838259999999,
+            "min": 2.747816,
+            "med": 4.539322,
+            "p(90)": 8.9285809,
+            "p(95)": 9.191680199999999,
+            "p(99)": 12.853003989999996
+        },
+        "vus": {
+            "value": 10,
+            "min": 10,
+            "max": 10
+        },
+        "lat_sync_pull": {
+            "med": 7.100106,
+            "p(90)": 11.4197735,
+            "p(95)": 13.496616750000001,
+            "p(99)": 18.11599725,
+            "max": 23.359607,
+            "avg": 7.765341500000004,
+            "min": 4.291674
+        },
+        "lat_create_payment": {
+            "p(95)": 29.839370399999964,
+            "p(99)": 39.291724849999994,
+            "max": 42.134515,
+            "avg": 17.245563518518516,
+            "min": 6.73712,
+            "med": 15.881212,
+            "p(90)": 26.767026700000002
+        },
+        "http_req_duration{expected_response:true}": {
+            "min": 1.553278,
+            "med": 9.5468835,
+            "p(90)": 56.3534362,
+            "p(95)": 69.00525239999999,
+            "p(99)": 117.5881731099999,
+            "max": 200.720906,
+            "avg": 19.49120128654972
+        }
+    },
+    "setup_data": {
+        "cursor": "WyIyMDI1LTExLTI0IDA5OjA3OjAxLjQ5NjUzNCswMCIsImk4NjQ1MCJd",
+        "token": "eyJhbGciOiJIUzI1NiJ9.eyJjaWQiOiI5NzgzYjgzMy02N2I1LTQ5MjYtODc5ZS1lMThhOTIwODljY2IiLCJvaWQiOiIwMjY4ZDllZi02OGIxLTQ2NzItOWVlZi0wMTgzNDI2N2NmZGMiLCJyb2xlIjoib3duZXIiLCJzdWIiOiIzOTkwYmEzMi1mMTU5LTQ0OTEtODFkZS1jNzJhYzA2NDllNzIiLCJpc3MiOiJjYWZpbm8tYXBpIiwiYXVkIjoiY2FmaW5vLWFwcCIsImlhdCI6MTc5NDIxNTI5MCwiZXhwIjoxNzk0MjE4ODkwfQ.xRZyZeuyGWKRjOI4kX9FwYOwu_b-6HLUHq9yXuaSnss"
+    }
+}

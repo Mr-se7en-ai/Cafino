@@ -1,0 +1,3 @@
+const react=require('eslint-plugin-react');const globals=require('globals');
+module.exports=[{ignores:['**/.build/**','**/node_modules/**','**/dist/**']},{files:['**/*.jsx'],languageOptions:{ecmaVersion:2022,sourceType:'module',parserOptions:{ecmaFeatures:{jsx:true}},globals:{...globals.browser,...globals.node}},
+plugins:{react},rules:{'no-undef':'error','react/jsx-no-undef':'error','no-dupe-keys':'error','no-redeclare':'error','no-const-assign':'error','no-unreachable':'warn','react/jsx-key':'warn','no-dupe-else-if':'error','no-self-assign':'warn','no-unused-vars':'off','react/jsx-uses-vars':'error','react/jsx-uses-react':'error'}}];

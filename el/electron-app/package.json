@@ -1,0 +1,61 @@
+{
+  "name": "cafenet-accounting",
+  "productName": "کافینو CAFINO",
+  "version": "1.76.0",
+  "description": "کافینو | CAFINO — سامانه مدیریت هوشمند کافی‌نت — نسخه دسکتاپ ویندوز",
+  "main": "main.js",
+  "author": "Hamed",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win --x64",
+    "dist:linux-dir": "electron-builder --linux dir --x64"
+  },
+  "dependencies": {
+    "pdf-to-printer": "^5.6.0"
+  },
+  "devDependencies": {
+    "electron": "45.2.3",
+    "electron-builder": "26.18.0"
+  },
+  "build": {
+    "appId": "com.hamed.cafenet.accounting",
+    "productName": "کافینو CAFINO",
+    "asar": true,
+    "files": [
+      "main.js",
+      "preload.js",
+      "native/**/*",
+      "app/**/*"
+    ],
+    "asarUnpack": [
+      "node_modules/pdf-to-printer/dist/**"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    },
+    "electronFuses": {
+      "runAsNode": false,
+      "enableCookieEncryption": true,
+      "enableNodeOptionsEnvironmentVariable": false,
+      "enableNodeCliInspectArguments": false,
+      "onlyLoadAppFromAsar": true,
+      "grantFileProtocolExtraPrivileges": true
+    }
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  }
+}

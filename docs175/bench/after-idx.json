@@ -1,0 +1,412 @@
+{
+ "upto": "all",
+ "scale": 1,
+ "seedMs": 15724,
+ "counts": {
+  "customers": 12000,
+  "accounts": 12000,
+  "invoices": 120000,
+  "payments": 108000,
+  "ledger_entries": 228000,
+  "inventory": 3600,
+  "inventory_movements": 72000,
+  "transactions": 60000,
+  "expenses": 36000,
+  "orders": 48000
+ },
+ "tableSizes": [
+  {
+   "relname": "ledger_entries",
+   "sz": "73 MB"
+  },
+  {
+   "relname": "invoices",
+   "sz": "65 MB"
+  },
+  {
+   "relname": "payments",
+   "sz": "39 MB"
+  },
+  {
+   "relname": "inventory_movements",
+   "sz": "18 MB"
+  },
+  {
+   "relname": "transactions",
+   "sz": "15 MB"
+  },
+  {
+   "relname": "orders",
+   "sz": "12 MB"
+  },
+  {
+   "relname": "customers",
+   "sz": "3784 kB"
+  }
+ ],
+ "results": [
+  {
+   "name": "list.customers (page1, count+rows)",
+   "ms": 2.34,
+   "seqScans": [
+    "customers(10000r×1)"
+   ],
+   "externalSort": false
+  },
+  {
+   "name": "list.invoices (page1, count+rows)",
+   "ms": 31.18,
+   "seqScans": [
+    "invoices(100000r×1)"
+   ],
+   "externalSort": false
+  },
+  {
+   "name": "list.invoices (offset 50000)",
+   "ms": 35.67,
+   "seqScans": [],
+   "externalSort": false
+  },
+  {
+   "name": "list.invoices filter customerId",
+   "ms": 0.09,
+   "seqScans": [],
+   "externalSort": false
+  },
+  {
+   "name": "list.invoices filter status=unpaid",
+   "ms": 11.84,
+   "seqScans": [],
+   "externalSort": false
+  },
+  {
+   "name": "list.invoices from/to (30d)",
+   "ms": 1.33,
+   "seqScans": [],
+   "externalSort": false
+  },
+  {
+   "name": "list.customers search q=نام77",
+   "ms": 8.98,
+   "seqScans": [
+    "customers(111r×1)"
+   ],
+   "externalSort": false
+  },
+  {
+   "name": "sync.invoices updatedSince=7d",
+   "ms": 26.17,
+   "seqScans": [
+    "invoices(333.33r×3)"
+   ],
+   "externalSort": false
+  },
+  {
+   "name": "sync.payments updatedSince=7d",
+   "ms": 25.5,
+   "seqScans": [
+    "payments(858r×1)"
+   ],
+   "externalSort": false
+  },
+  {
+   "name": "list.payments by invoice",
+   "ms": 0.04,
+   "seqScans": [],
+   "externalSort": false
+  },
+  {
+   "name": "ledger account page",
+   "ms": 0.05,
+   "seqScans": [],
+   "externalSort": false
+  },
+  {
+   "name": "report.revenue 30d",
+   "ms": 1.59,
+   "seqScans": [],
+   "externalSort": false
+  },
+  {
+   "name": "report.revenue 365d",
+   "ms": 21.49,
+   "seqScans": [
+    "invoices(17445.67r×3)"
+   ],
+   "externalSort": false
+  },
+  {
+   "name": "report.collected 30d",
+   "ms": 1.52,
+   "seqScans": [],
+   "externalSort": false
+  },
+  {
+   "name": "report.transactions 30d",
+   "ms": 0.85,
+   "seqScans": [],
+   "externalSort": false
+  },
+  {
+   "name": "report.expenses 30d",
+   "ms": 0.43,
+   "seqScans": [],
+   "externalSort": false
+  },
+  {
+   "name": "report.receivable (open)",
+   "ms": 9.48,
+   "seqScans": [],
+   "externalSort": false
+  },
+  {
+   "name": "report.topCustomers 30d",
+   "ms": 4.8,
+   "seqScans": [],
+   "externalSort": false
+  },
+  {
+   "name": "report.daily 30d",
+   "ms": 2.43,
+   "seqScans": [],
+   "externalSort": false
+  },
+  {
+   "name": "report.lowStock",
+   "ms": 1.59,
+   "seqScans": [
+    "inventory(2000r×1)"
+   ],
+   "externalSort": false
+  },
+  {
+   "name": "report.dupInvoiceNumbers",
+   "ms": 72.4,
+   "seqScans": [],
+   "externalSort": false
+  },
+  {
+   "name": "inventory.movements per item",
+   "ms": 0.08,
+   "seqScans": [],
+   "externalSort": false
+  },
+  {
+   "name": "orders status=new",
+   "ms": 0.22,
+   "seqScans": [],
+   "externalSort": false
+  },
+  {
+   "name": "reconcile.payment.orphan_invoice",
+   "ms": 71.5,
+   "seqScans": [
+    "payments(45000r×2)",
+    "invoices(50000r×2)"
+   ],
+   "externalSort": false
+  },
+  {
+   "name": "reconcile.payment.orphan_customer",
+   "ms": 50.1,
+   "seqScans": [
+    "payments(90000r×1)",
+    "customers(10000r×1)"
+   ],
+   "externalSort": false
+  },
+  {
+   "name": "reconcile.payment.customer_mismatch",
+   "ms": 114.66,
+   "seqScans": [
+    "payments(90000r×1)",
+    "invoices(100000r×1)"
+   ],
+   "externalSort": false
+  },
+  {
+   "name": "reconcile.reversal.orphan",
+   "ms": 14.39,
+   "seqScans": [
+    "payments(0r×1)"
+   ],
+   "externalSort": false
+  },
+  {
+   "name": "reconcile.reversal.amount_mismatch",
+   "ms": 0.02,
+   "seqScans": [],
+   "externalSort": false
+  },
+  {
+   "name": "reconcile.reversal.link_mismatch",
+   "ms": 0.02,
+   "seqScans": [],
+   "externalSort": false
+  },
+  {
+   "name": "reconcile.payment.possible_duplicate",
+   "ms": 81.11,
+   "seqScans": [
+    "payments(45000r×2)"
+   ],
+   "externalSort": false
+  },
+  {
+   "name": "reconcile.invoice.orphan_customer",
+   "ms": 39.03,
+   "seqScans": [
+    "invoices(33333.33r×3)",
+    "customers(10000r×3)"
+   ],
+   "externalSort": false
+  },
+  {
+   "name": "reconcile.invoice.overpaid",
+   "ms": 34.35,
+   "seqScans": [
+    "invoices(0r×1)"
+   ],
+   "externalSort": false
+  },
+  {
+   "name": "reconcile.invoice.duplicate_number",
+   "ms": 112.87,
+   "seqScans": [
+    "invoices(100000r×1)"
+   ],
+   "externalSort": false
+  },
+  {
+   "name": "reconcile.order.orphan_invoice",
+   "ms": 47.52,
+   "seqScans": [
+    "invoices(100000r×1)",
+    "orders(40000r×1)"
+   ],
+   "externalSort": false
+  },
+  {
+   "name": "reconcile.order.orphan_customer",
+   "ms": 12.03,
+   "seqScans": [
+    "orders(40000r×1)",
+    "customers(10000r×1)"
+   ],
+   "externalSort": false
+  },
+  {
+   "name": "reconcile.ledger.payment_missing",
+   "ms": 82.22,
+   "seqScans": [
+    "ledger_entries(30000r×3)",
+    "payments(90000r×1)"
+   ],
+   "externalSort": false
+  },
+  {
+   "name": "reconcile.ledger.payment_amount_mismatch",
+   "ms": 210.83,
+   "seqScans": [
+    "ledger_entries(30000r×3)",
+    "payments(90000r×1)"
+   ],
+   "externalSort": false
+  },
+  {
+   "name": "reconcile.ledger.payment_duplicate",
+   "ms": 64.73,
+   "seqScans": [
+    "ledger_entries(90000r×1)"
+   ],
+   "externalSort": false
+  },
+  {
+   "name": "reconcile.ledger.invoice_diff",
+   "ms": 194.68,
+   "seqScans": [
+    "invoices(100000r×1)",
+    "ledger_entries(33333.33r×3)"
+   ],
+   "externalSort": false
+  },
+  {
+   "name": "reconcile.ledger.waiver_diff",
+   "ms": 73.54,
+   "seqScans": [
+    "invoices(100000r×1)",
+    "ledger_entries(0r×3)"
+   ],
+   "externalSort": false
+  },
+  {
+   "name": "reconcile.ledger.orphan_ref",
+   "ms": 349.44,
+   "seqScans": [
+    "payments(108000r×1)",
+    "invoices(120000r×1)"
+   ],
+   "externalSort": false
+  },
+  {
+   "name": "reconcile.account.balance_mismatch",
+   "ms": 67.88,
+   "seqScans": [
+    "accounts(10000r×1)",
+    "ledger_entries(190000r×1)"
+   ],
+   "externalSort": false
+  },
+  {
+   "name": "reconcile.account.customer_mismatch",
+   "ms": 106.75,
+   "seqScans": [
+    "ledger_entries(90000r×1)",
+    "payments(90000r×1)",
+    "accounts(10000r×1)"
+   ],
+   "externalSort": false
+  },
+  {
+   "name": "reconcile.account.multiple_per_customer",
+   "ms": 3.96,
+   "seqScans": [
+    "accounts(10000r×1)"
+   ],
+   "externalSort": false
+  },
+  {
+   "name": "reconcile.account.credit",
+   "ms": 1.11,
+   "seqScans": [
+    "accounts(0r×1)"
+   ],
+   "externalSort": false
+  },
+  {
+   "name": "reconcile.inventory.negative",
+   "ms": 0.71,
+   "seqScans": [
+    "inventory(2000r×1)"
+   ],
+   "externalSort": false
+  },
+  {
+   "name": "reconcile.inventory.movement_orphan",
+   "ms": 18.33,
+   "seqScans": [
+    "inventory_movements(60000r×1)",
+    "inventory(3000r×1)"
+   ],
+   "externalSort": false
+  },
+  {
+   "name": "reconcile.transaction.invalid",
+   "ms": 9.28,
+   "seqScans": [
+    "transactions(0r×1)"
+   ],
+   "externalSort": false
+  }
+ ]
+}

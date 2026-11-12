@@ -1,0 +1,47 @@
+# ساخت APK اندروید روی GitHub Actions (اینترنت و Android SDK آنجا در دسترس است).
+# اجرا: تب Actions ← «Android APK» ← Run workflow. خروجی: Artifact با نام cafino-apk.
+# برای APK امضاشدهٔ release، چهار Secret زیر را در مخزن بگذارید: CAFINO_KEYSTORE_B64, CAFINO_KEYSTORE_PASSWORD, CAFINO_KEY_ALIAS, CAFINO_KEY_PASSWORD
+name: Android APK
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "debug یا release"
+        default: "debug"
+        type: choice
+        options: [debug, release]
+  push:
+    tags: ["v*"]
+jobs:
+  apk:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 21 }
+      - uses: android-actions/setup-android@v3
+      - run: npm ci
+      - run: npm run build
+      - name: Prepare keystore
+        if: ${{ (inputs.mode || 'debug') == 'release' }}
+        env:
+          B64: ${{ secrets.CAFINO_KEYSTORE_B64 }}
+        run: |
+          if [ -z "$B64" ]; then echo "هشدار: Secret امضا تنظیم نشده؛ APK بدون امضا (نصب‌نشدنی) ساخته می‌شود"; exit 0; fi
+          echo "$B64" | base64 -d > "$RUNNER_TEMP/cafino.jks"
+          echo "CAFINO_KEYSTORE=$RUNNER_TEMP/cafino.jks" >> "$GITHUB_ENV"
+          echo "CAFINO_KEYSTORE_PASSWORD=${{ secrets.CAFINO_KEYSTORE_PASSWORD }}" >> "$GITHUB_ENV"
+          echo "CAFINO_KEY_ALIAS=${{ secrets.CAFINO_KEY_ALIAS }}" >> "$GITHUB_ENV"
+          echo "CAFINO_KEY_PASSWORD=${{ secrets.CAFINO_KEY_PASSWORD }}" >> "$GITHUB_ENV"
+      - name: Build APK
+        working-directory: android
+        run: |
+          npm ci
+          python3 -m pip install pillow
+          bash scripts/build-apk.sh "${{ inputs.mode || 'debug' }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cafino-apk
+          path: android/out/*.apk

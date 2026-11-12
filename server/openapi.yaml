@@ -1,0 +1,102 @@
+openapi: 3.0.3
+info:
+  title: کافینو API
+  version: 1.63.0
+  description: |
+    API مرکزی کافینو (Fastify + PostgreSQL). احراز هویت: کوکی HttpOnly (`cafino_at`/`cafino_rt`) یا `Authorization: Bearer`.
+    همهٔ خطاها: `{ "error": { "code", "message", "details?" } }`. پاسخ موفق: `{ "data": … , "meta"?: … }`.
+    درخواست‌های ساخت/ویرایش می‌توانند `Idempotency-Key` بفرستند؛ ارسال تکراری همان پاسخ اول را می‌گیرد (هدر `Idempotency-Replayed: true`).
+servers: [{ url: / }]
+components:
+  securitySchemes:
+    bearer: { type: http, scheme: bearer }
+    cookie: { type: apiKey, in: cookie, name: cafino_at }
+  parameters:
+    id: { name: id, in: path, required: true, schema: { type: string, maxLength: 128 } }
+    limit: { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 500, default: 100 } }
+    offset: { name: offset, in: query, schema: { type: integer, minimum: 0, default: 0 } }
+    updatedSince: { name: updatedSince, in: query, description: فقط رکوردهای تغییرکرده پس از این زمان (همگام‌سازی افزایشی), schema: { type: string, format: date-time } }
+    idem: { name: Idempotency-Key, in: header, schema: { type: string, maxLength: 200 } }
+  schemas:
+    Error:
+      type: object
+      properties: { error: { type: object, properties: { code: { type: string }, message: { type: string }, details: {} } } }
+    User:
+      type: object
+      properties: { id: { type: string }, email: { type: string }, role: { enum: [owner, manager, staff, platform_admin] }, organizationId: { type: string }, branchId: { type: string }, permissions: { type: array, items: { type: string } }, mustChangePassword: { type: boolean } }
+    Session:
+      type: object
+      properties: { accessToken: { type: string }, expiresIn: { type: integer }, user: { $ref: "#/components/schemas/User" } }
+    Record:
+      type: object
+      description: رکورد دلخواه برنامه؛ فیلدهای نوع‌دار اعتبارسنجی می‌شوند و بقیه بدون تغییر نگه‌داری می‌شوند (جدول مربوط در docs/schema).
+      additionalProperties: true
+      properties: { id: { type: string }, createdAt: { type: string }, updatedAt: { type: string } }
+security: [{ bearer: [] }, { cookie: [] }]
+paths:
+  /healthz: { get: { summary: زنده بودن, security: [], responses: { "200": { description: ok } } } }
+  /readyz: { get: { summary: آمادگی (اتصال پایگاه‌داده), security: [], responses: { "200": { description: ok }, "503": { description: پایگاه‌داده در دسترس نیست } } } }
+  /api/auth/register: { post: { summary: ثبت‌نام کافی‌نت + مالک (فقط اگر ALLOW_REGISTRATION), security: [], requestBody: { content: { application/json: { schema: { type: object, required: [email, password], properties: { email: { type: string }, password: { type: string, minLength: 8 }, firstName: { type: string }, lastName: { type: string }, phone: { type: string }, shopName: { type: string } } } } } }, responses: { "201": { description: نشست جدید }, "403": { description: ثبت‌نام بسته }, "409": { description: ایمیل تکراری } } } }
+  /api/auth/login: { post: { summary: ورود (قفل موقت پس از ۸ اشتباه), security: [], responses: { "200": { description: نشست }, "401": { description: اشتباه }, "429": { description: قفل/محدودیت نرخ } } } }
+  /api/auth/refresh: { post: { summary: چرخش refresh token (کوکی), security: [], responses: { "200": { description: نشست تازه }, "401": { description: نامعتبر } } } }
+  /api/auth/logout: { post: { summary: خروج و باطل‌کردن خانوادهٔ توکن, responses: { "204": { description: ok } } } }
+  /api/auth/me: { get: { summary: کاربر جاری (با refresh معتبر نشست را تازه می‌کند), responses: { "200": { description: کاربر } } } }
+  /api/auth/password: { post: { summary: تغییر رمز؛ نشست‌های دیگر بسته می‌شوند, responses: { "200": { description: نشست تازه }, "403": { description: رمز فعلی غلط } } } }
+  /api/auth/forgot-password: { post: { summary: ارسال کد ۸رقمی (همیشه ۲۰۲), security: [], responses: { "202": { description: ok } } } }
+  /api/auth/reset-password: { post: { summary: تعیین رمز جدید با کد, security: [], responses: { "204": { description: ok }, "400": { description: کد نامعتبر } } } }
+  /api/users: { get: { summary: کاربران کافی‌نت (مدیر), responses: { "200": { description: ok } } } }
+  /api/users/invite: { post: { summary: دعوت کاربر؛ رمز موقت یک‌بار برمی‌گردد, responses: { "201": { description: "{ user, temporaryPassword }" } } } }
+  /api/users/{id}: { patch: { summary: تغییر نقش/فعال‌بودن, parameters: [{ $ref: "#/components/parameters/id" }], responses: { "200": { description: ok } } } }
+  /api/announcements: { get: { summary: اطلاعیه‌های پنل مرکزی برای این کافی‌نت, responses: { "200": { description: ok } } } }
+  /api/tickets:
+    get: { summary: تیکت‌های این کافی‌نت با پیام‌ها, parameters: [{ $ref: "#/components/parameters/limit" }], responses: { "200": { description: ok } } }
+    post: { summary: ساخت تیکت (شناسه را کلاینت می‌سازد), parameters: [{ $ref: "#/components/parameters/idem" }], responses: { "201": { description: ساخته شد }, "200": { description: تکراری = همان تیکت } } }
+  /api/tickets/{id}/messages: { post: { summary: پاسخ کافی‌نت, parameters: [{ $ref: "#/components/parameters/id" }, { $ref: "#/components/parameters/idem" }], responses: { "201": { description: ok }, "409": { description: تیکت بسته } } } }
+  /api/tickets/{id}: { patch: { summary: "بستن/بازکردن ({status: open|closed})", parameters: [{ $ref: "#/components/parameters/id" }], responses: { "200": { description: ok } } } }
+  /api/reports/summary: { get: { summary: "خلاصهٔ مالی از SQL (from,to) — مدیر", responses: { "200": { description: "درآمد، وصولی، مطالبات، هزینه، مشتریان برتر، کم‌موجودی، شمارهٔ فاکتور تکراری" } } } }
+  /api/audit: { get: { summary: لاگ حسابرسی سرور (مدیر), responses: { "200": { description: ok } } } }
+  /api/audit/verify: { get: { summary: بررسی سلامت زنجیرهٔ هش, responses: { "200": { description: "{ ok, count, brokenAt? }" } } } }
+  /api/admin/overview: { get: { summary: آمار پنل مرکزی (platform_admin), responses: { "200": { description: ok } } } }
+  /api/admin/cafes:
+    get: { summary: فهرست کافی‌نت‌ها, responses: { "200": { description: ok } } }
+    post: { summary: ساخت کافی‌نت + مالک با رمز موقت, responses: { "201": { description: ok } } }
+  /api/admin/cafes/{id}: { patch: { summary: تعلیق/فعال‌سازی/تغییر نام, parameters: [{ $ref: "#/components/parameters/id" }], responses: { "200": { description: ok } } } }
+  /api/admin/announcements:
+    get: { summary: همهٔ اطلاعیه‌ها, responses: { "200": { description: ok } } }
+    post: { summary: انتشار اطلاعیه (عمومی یا targetCafes), responses: { "201": { description: ok } } }
+  /api/admin/announcements/{id}:
+    patch: { parameters: [{ $ref: "#/components/parameters/id" }], responses: { "200": { description: ok } } }
+    delete: { parameters: [{ $ref: "#/components/parameters/id" }], responses: { "204": { description: ok } } }
+  /api/admin/tickets: { get: { summary: "همهٔ تیکت‌ها (status, cafeId)", responses: { "200": { description: ok } } } }
+  /api/admin/tickets/{cafeId}/{id}: { get: { responses: { "200": { description: تیکت با پیام‌ها } } }, patch: { summary: تغییر وضعیت, responses: { "200": { description: ok } } } }
+  /api/admin/tickets/{cafeId}/{id}/reply: { post: { summary: پاسخ پشتیبانی, responses: { "201": { description: ok } } } }
+  /api/payments/{id}/void:
+    post: { summary: "برگشت پرداخت (ردیف منفی)؛ حذف پرداخت وجود ندارد. بدنه {reason} الزامی", parameters: [{ $ref: "#/components/parameters/id" }, { $ref: "#/components/parameters/idem" }], responses: { "201": { description: برگشت ثبت شد }, "409": { description: قبلاً برگشت خورده } } }
+  /api/invoices/{id}/void:
+    post: { summary: "ابطال فاکتور (مدیر). بدنه {reason}", parameters: [{ $ref: "#/components/parameters/id" }, { $ref: "#/components/parameters/idem" }], responses: { "200": { description: ok } } }
+  /api/accounts/{id}/ledger: { get: { summary: ردیف‌های دفتر کل حساب و مانده, parameters: [{ $ref: "#/components/parameters/id" }], responses: { "200": { description: ok } } } }
+  /api/accounts/{id}/adjust:
+    post: { summary: "تعدیل/برگشت وجه روی حساب (مدیر). بدنه {amount, kind: adjustment|refund, reason}", parameters: [{ $ref: "#/components/parameters/id" }, { $ref: "#/components/parameters/idem" }], responses: { "201": { description: ok } } }
+  /api/inventory/{id}/ledger: { get: { summary: "موجودی اولیه + حرکت‌ها = موجودی فعلی", parameters: [{ $ref: "#/components/parameters/id" }], responses: { "200": { description: ok } } } }
+  /api/inventory/rebuild: { post: { summary: "Rebuild Inventory (مدیر): {itemId?, dryRun?, reason?}", responses: { "200": { description: ok } } } }
+  /api/integrity: { get: { summary: "یتیم‌ها و انحراف مقادیر مشتق (مدیر)", responses: { "200": { description: ok } } } }
+  /api/integrity/rebuild: { post: { summary: "بازسازی مقادیر مشتق: {scope:[invoices|accounts|inventory], dryRun?, reason?}", responses: { "200": { description: ok } } } }
+  /api/integrity/corrections: { get: { summary: "فهرست درخواست‌های اصلاح مالی (تأییدکننده همه، درخواست‌دهنده فقط خودش) ?status=", responses: { "200": { description: ok } } }, post: { summary: "ثبت درخواست اصلاح {scope[], reason≥5} با پیش‌نمایش dry-run — نیازمند مجوز reconcile.request", responses: { "201": { description: pending } } } }
+  /api/integrity/corrections/{id}/approve: { post: { summary: "تأیید و اجرای اصلاح (reconcile.approve؛ درخواست‌دهنده خودش را تأیید نمی‌کند مگر مالک)", responses: { "200": { description: approved }, "409": { description: already_decided } } } }
+  /api/integrity/corrections/{id}/reject: { post: { summary: "رد درخواست {note≥3}", responses: { "200": { description: rejected } } } }
+  /api/shifts/open: { post: { summary: "باز کردن شیفت صندوق {openingCash} — فقط یک شیفت باز در هر کافی‌نت", responses: { "201": { description: open }, "409": { description: shift_already_open } } } }
+  /api/shifts/current: { get: { summary: "شیفت باز + ارقام زنده", responses: { "200": { description: ok } } } }
+  /api/shifts/{id}: { get: { summary: "جزئیات شیفت + ارقام زنده/driftSinceClose", responses: { "200": { description: ok } } } }
+  /api/shifts/{id}/close: { post: { summary: "بستن شیفت {countedCash, note?}؛ اختلاف ≠ ۰ نیازمند note", responses: { "200": { description: closed }, "422": { description: note_required } } } }
+  /api/shifts: { get: { summary: "فهرست شیفت‌ها (shift.manage) ?status=open|closed", responses: { "200": { description: ok } } } }
+  /api/shifts/report: { get: { summary: "گزارش عملکرد شیفت به تفکیک مسئول ?from&to (shift.manage)", responses: { "200": { description: ok } } } }
+  /api/bi/overview: { get: { summary: "هوش کسب‌وکار ?months&inactiveDays&asOf — روند ماهانه، رشد، مشتریان غیرفعال، پیش‌بینی (report.bi)", responses: { "200": { description: ok } } } }
+  "/api/{resource}":
+    parameters: [{ name: resource, in: path, required: true, schema: { enum: [customers, inventory, inventory-movements, orders, invoices, payments, accounts, transactions, expenses, obligations, settings] } }]
+    get: { summary: "فهرست {data, meta} — limit, offset, updatedSince, q, from/to (تاریخ), includeDeleted (مدیر)", responses: { "200": { description: ok } } }
+    post: { summary: "ساخت (شناسه از کلاینت؛ تکراری = همان رکورد ۲۰۰)", parameters: [{ $ref: "#/components/parameters/idem" }], responses: { "201": { description: ساخته شد }, "422": { description: اعتبارسنجی } } }
+  "/api/{resource}/{id}":
+    parameters: [{ name: resource, in: path, required: true, schema: { type: string } }, { $ref: "#/components/parameters/id" }]
+    get: { responses: { "200": { description: ok }, "404": { description: نیست } } }
+    patch: { summary: ادغام فیلدها (موجودی کالا و کیف پول مشتری با PATCH تغییر نمی‌کنند), parameters: [{ $ref: "#/components/parameters/idem" }], responses: { "200": { description: ok } } }
+    delete: { summary: حذف نرم (بی‌اثر در تکرار؛ برای payments ۴۰۵ — از /void استفاده شود), responses: { "204": { description: ok } } }

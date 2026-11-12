@@ -1,0 +1,7 @@
+{
+  "appId": "ir.cafino.app",
+  "appName": "کافینو",
+  "webDir": "www",
+  "android": { "allowMixedContent": false, "backgroundColor": "#0f172a" },
+  "server": { "androidScheme": "https" }
+}

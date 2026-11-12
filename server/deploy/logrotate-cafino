@@ -1,0 +1,10 @@
+# /etc/logrotate.d/cafino — چرخش لاگ‌های روی میزبان (لاگ کانتینرها با json-file در docker-compose.yml چرخانده می‌شود)
+/var/log/cafino-backup.log /var/log/cafino-health.log {
+    weekly
+    rotate 8
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 0640 root adm
+}
