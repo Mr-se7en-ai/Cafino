@@ -2,12 +2,12 @@
 
 > **وضعیت صادقانه:** در محیطی که این نسخه ساخته شد، دسترسی به `dl.google.com`، Maven Central/Google Maven و Gradle بسته بود
 > (پاسخ 403) و Android SDK نصب نبود؛ بنابراین **فایل APK در آن‌جا ساخته نشد** و هیچ APK ادعایی تست نشده است.
-> آنچه تحویل شده یک پروژهٔ Android Studio/Gradle کامل و هم‌گام‌شده با وب‌اپ ۱.۷۵.۱ است که با یک دستور APK می‌دهد.
+> آنچه تحویل شده یک پروژهٔ Android Studio/Gradle کامل و هم‌گام‌شده با وب‌اپ ۱.۷۷.۰ است که با یک دستور APK می‌دهد.
 
 ## راه ۱ — ساخت روی GitHub Actions (بدون نصب چیزی روی سیستم خودتان)
 ۱. پروژه را در یک مخزن GitHub بگذارید (پوشهٔ `.github/workflows/android-apk.yml` همراه است).
 ۲. تب **Actions ← Android APK ← Run workflow** (mode = `debug`).
-۳. پس از ~۵–۸ دقیقه، Artifact با نام **cafino-apk** را دانلود کنید؛ داخلش `cafino-1.75.1-debug.apk` است.
+۳. پس از ~۵–۸ دقیقه، Artifact با نام **cafino-apk** را دانلود کنید؛ داخلش `cafino-<نسخه>-debug.apk` است.
    APK حالت debug با کلید دیباگ امضا می‌شود و برای نصب مستقیم روی گوشی (Sideload) کافی است.
 
 ## راه ۲ — ساخت روی سیستم خودتان
@@ -17,7 +17,7 @@ npm ci && npm run build        # ساخت وب‌اپ → dist/pwa
 cd android
 npm ci
 python3 scripts/make-icons.py  # (اختیاری) آیکن‌ها از dist/pwa/icons — ازقبل ساخته شده‌اند
-bash scripts/build-apk.sh debug      # خروجی: android/out/cafino-1.75.1-debug.apk
+bash scripts/build-apk.sh debug      # خروجی: android/out/cafino-<نسخه>-debug.apk
 ```
 یا پوشهٔ `android/android` را در Android Studio باز کنید (Build ← Build APK).
 

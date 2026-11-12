@@ -97,6 +97,12 @@ export function loadConfig(source = env) {
     uploadQuotaMb: Math.max(10, int(e.UPLOAD_CAFE_QUOTA_MB, 2048)),
     uploadDailyFiles: Math.max(1, int(e.UPLOAD_DAILY_FILES_PER_CAFE, 300)),
     uploadIpPerHour: Math.max(1, int(e.UPLOAD_IP_PER_HOUR, 30)),
+    // ضدویروس ClamAV (clamd): با CLAMAV_HOST یا CLAMAV_SOCKET فعال می‌شود. UPLOAD_AV_MODE: off | optional | required (پیش‌فرض required اگر clamd تنظیم شده باشد)
+    clamavHost: e.CLAMAV_HOST || "",
+    clamavPort: int(e.CLAMAV_PORT, 3310),
+    clamavSocket: e.CLAMAV_SOCKET || "",
+    clamavTimeoutMs: Math.max(2000, int(e.CLAMAV_TIMEOUT_MS, 90000)),
+    uploadAvMode: ["off", "optional", "required"].includes(String(e.UPLOAD_AV_MODE || "").toLowerCase()) ? String(e.UPLOAD_AV_MODE).toLowerCase() : ((e.CLAMAV_HOST || e.CLAMAV_SOCKET) ? "required" : "off"),
     publicBaseUrl: String(e.PUBLIC_BASE_URL || "").replace(/\/+$/, ""),     // مثلاً https://cafino.example.com — برای نشانی کامل QR؛ خالی = کلاینت از مبدأ خودش می‌سازد
     referenceChecks: /^(off|false|0)$/i.test(String(e.REFERENCE_CHECKS || "")) ? "off" : "strict",   // strict: ارجاع به مشتری/فاکتور ناموجود رد می‌شود (یتیم‌ساز نیست)
   };

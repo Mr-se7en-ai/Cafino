@@ -94,7 +94,7 @@ test("صفحهٔ عمومی: HTML با CSP مبتنی بر هش (بدون unsafe
   assert.equal((await ctx.app.inject({ method: "GET", url: "/u/short" })).statusCode, 404);
   assert.equal((await ctx.app.inject({ method: "GET", url: "/u/" + "a".repeat(16) })).statusCode, 200);   // صفحه برای هر کد معتبرالقالب باز می‌شود؛ وجود کافه را فاش نمی‌کند
   const info = await ctx.app.inject({ method: "GET", url: `/api/public/upload/${code}` });
-  assert.deepEqual(Object.keys(J(info).data).sort(), ["allowedExts", "cafeName", "maxFileMb", "maxFiles", "notice", "requirePhone"]);
+  assert.deepEqual(Object.keys(J(info).data).sort(), ["allowedExts", "cafeName", "expiresAt", "kind", "label", "maxFileMb", "maxFiles", "notice", "requirePhone", "serverTime"]);
   assert.equal(J(info).data.cafeName, "کافه‌آپلود");
   assert.equal((await ctx.app.inject({ method: "GET", url: "/api/public/upload/" + "b".repeat(16) })).statusCode, 404);
 });

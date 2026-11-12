@@ -41,6 +41,21 @@ services:
     cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]
 
+  # ضدویروس ClamAV برای فایل‌های دریافتی از مشتری (اختیاری): docker compose --profile av up -d  و در .env:  CLAMAV_HOST=clamav
+  # پایگاه امضاها در اولین اجرا و سپس روزانه خودکار به‌روز می‌شود (نیاز به اینترنت خروجی کانتینر). اولین راه‌اندازی چند دقیقه طول می‌کشد.
+  clamav:
+    image: clamav/clamav:1.4
+    profiles: ["av"]
+    restart: unless-stopped
+    environment:
+      CLAMD_CONF_StreamMaxLength: 110M            # باید دست‌کم برابر بزرگ‌ترین فایل مجاز (۱۰۰ مگابایت) باشد
+      CLAMD_CONF_MaxFileSize: 110M
+      CLAMD_CONF_MaxScanSize: 200M
+    volumes: [clamdb:/var/lib/clamav]
+    logging: *logging
+    healthcheck: { test: ["CMD-SHELL", "clamdcheck.sh"], interval: 60s, timeout: 10s, retries: 5, start_period: 300s }
+    networks: [internal]
+
   web:
     image: nginx:1.27-alpine
     restart: unless-stopped
@@ -59,5 +74,6 @@ services:
 volumes:
   dbdata:
   uploads:
+  clamdb:
 networks:
   internal:

@@ -45,6 +45,19 @@ export function generateCode() {
   return out.slice(0, 16);
 }
 export const isCode = (c) => /^[a-z2-7]{16}$/.test(String(c || ""));
+/** رمز وضعیت هر ارسال (۱۲۸ بیت): فقط هش آن ذخیره می‌شود؛ مشتری با آن فقط وضعیت ارسال خودش را می‌بیند. */
+export const newSecret = () => crypto.randomBytes(16).toString("hex");
+export const hashSecret = (s) => crypto.createHash("sha256").update(String(s)).digest("hex");
+export const safeEqualHex = (a, b) => { const x = Buffer.from(String(a)), y = Buffer.from(String(b)); return x.length === y.length && x.length > 0 && crypto.timingSafeEqual(x, y); };
+/** تغییر نام: پسوند باید همان پسوند فایل بماند (جلوگیری از ناسازگاری نام و محتوا). پسوند ننوشته باشد خودکار اضافه می‌شود. */
+export function renameKeepExt(newRaw, oldName) {
+  const ext = extOf(oldName); let n = sanitizeName(newRaw);
+  if (n === "file" && !String(newRaw ?? "").trim()) return { error: "empty" };
+  const e2 = extOf(n);
+  if (e2 && e2 !== ext && ALLOWED_EXTS.includes(e2)) return { error: "ext_changed" };
+  if (e2 !== ext) n = (n.replace(/\.+$/, "") + (ext ? `.${ext}` : "")).slice(0, 120);
+  return { name: n };
+}
 export const batchCode = () => String(crypto.randomInt(0, 100000)).padStart(5, "0");
 
 export const uploadRoot = (cfg) => path.resolve(cfg.uploadDir);
@@ -59,10 +72,14 @@ export function pathForKey(cfg, key) {
 }
 export const ipHash = (cfg, ip) => crypto.createHash("sha256").update(`${cfg.jwtSecret}|${ip}`).digest("hex").slice(0, 32);
 
-/** فایل‌های منقضی (بیش از retention_days) را از دیسک پاک و سطر را علامت می‌زند؛ نام فایل پاک می‌شود. تعداد را برمی‌گرداند. */
+/** فایل‌های منقضی را از دیسک پاک و سطر را علامت می‌زند؛ نام فایل پاک می‌شود. تعداد را برمی‌گرداند.
+ *  منقضی = (بیش از retention_days از دریافت) یا (چاپ‌شده/انجام‌شده و بیش از done_retention_days از تغییر وضعیت). «نگه‌داری ویژه» (protected) هرگز خودکار پاک نمی‌شود. */
 export async function sweepExpired(pool, cfg, log = () => {}) {
   const r = await pool.query(`SELECT u.cafe_id, u.id, u.storage_key FROM customer_uploads u JOIN upload_settings s ON s.cafe_id = u.cafe_id
-    WHERE u.deleted_at IS NULL AND u.created_at < now() - (s.retention_days || ' days')::interval LIMIT 500`);
+    WHERE u.deleted_at IS NULL AND NOT u.protected AND (
+      u.created_at < now() - (s.retention_days || ' days')::interval
+      OR (u.status IN ('printed','done') AND COALESCE(u.status_at, u.created_at) < now() - (s.done_retention_days || ' days')::interval)
+    ) LIMIT 500`);
   let n = 0;
   for (const x of r.rows) {
     try { await fs.promises.rm(pathForKey(cfg, x.storage_key), { force: true }); } catch (e) { log(`sweep rm failed: ${e.message}`); continue; }
@@ -70,5 +87,7 @@ export async function sweepExpired(pool, cfg, log = () => {}) {
   }
   // فایل‌های موقت رهاشده (آپلود نیمه‌کاره) بیش از ۲ ساعت
   try { for (const f of await fs.promises.readdir(tmpDir(cfg))) { const p = path.join(tmpDir(cfg), f); const st = await fs.promises.stat(p); if (Date.now() - st.mtimeMs > 2 * 3600e3) await fs.promises.rm(p, { force: true }); } } catch { /* پوشه هنوز نیست */ }
+  // ردّ ضدویروس‌های قدیمی‌تر از ۹۰ روز
+  try { await pool.query("DELETE FROM upload_blocked WHERE created_at < now() - interval '90 days'"); } catch (e) { log(`blocked cleanup failed: ${e.message}`); }
   return n;
 }

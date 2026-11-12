@@ -58,6 +58,7 @@ await p.goto(base + "/?tab=uploads"); await p.waitForSelector('[data-testid="up-
 ok(true, "uploads tab shows the cafe's own QR");
 const url = (await p.textContent('[data-testid="up-url"]')).trim();
 ok(url.startsWith(base + "/u/") && /\/u\/[a-z2-7]{16}$/.test(url), "QR URL is this cafe's unguessable /u/<code>: " + url);
+await p.waitForSelector('[data-testid="up-empty"]', { timeout: 15000 }).catch(() => {});
 ok((await p.textContent('[data-testid="uploads-page"]')).includes("هنوز فایلی نرسیده"), "empty state before any upload");
 
 // ── رمزگشایی QR از روی صفحه (نه از روی URL متنی): SVG → canvas → jsQR

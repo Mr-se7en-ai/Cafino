@@ -142,7 +142,7 @@ test("003: مهاجرت روی پایگاه‌دادهٔ موجود (001+002) ه
       (await pool.query("SELECT cafe_id,id,total_amount,paid_amount,remaining_amount,status FROM invoices ORDER BY id")).rows,
       (await pool.query("SELECT cafe_id,id,balance FROM accounts ORDER BY id")).rows]);
     const before = await snap();
-    assert.deepEqual(await migrate(pool), ["003_financial_hardening.sql", "004_permissions.sql", "005_performance_indexes.sql", "006_shifts_corrections.sql", "007_customer_uploads.sql"]);
+    assert.deepEqual(await migrate(pool), ["003_financial_hardening.sql", "004_permissions.sql", "005_performance_indexes.sql", "006_shifts_corrections.sql", "007_customer_uploads.sql", "008_upload_sessions.sql"]);
     assert.equal(await snap(), before, "داده باید بایت‌به‌بایت یکسان بماند");
     assert.deepEqual(await migrate(pool), []);
     await rej(pool.query("DELETE FROM ledger_entries"), /financial_no_delete/);

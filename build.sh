@@ -13,7 +13,7 @@ mkdir -p "$EA"
 COMMON=(--bundle --minify --format=iife --jsx=automatic --loader:.js=jsx --define:process.env.NODE_ENV='"production"' --define:import.meta.env='{}' --log-level=warning)
 rm -rf chunks && mkdir chunks
 MAP="{"
-for n in xlsx xlsxworker pdf pdfinfo; do
+for n in xlsx xlsxworker pdf pdfinfo pdftools pdfjs pdfjsworker; do
   npx esbuild src/vendor/$n.entry.js "${COMMON[@]}" --outfile=chunks/tmp-$n.js
   h=$(node -e 'process.stdout.write(require("crypto").createHash("sha1").update(require("fs").readFileSync(process.argv[1])).digest("hex").slice(0,8))' chunks/tmp-$n.js)
   mv chunks/tmp-$n.js chunks/vendor-$n.$h.js

@@ -24,6 +24,7 @@ export const PERMISSIONS = {
   "report.bi": "هوش کسب‌وکار (روند فروش، مشتریان غیرفعال، پیش‌بینی)",
   "upload.view": "مشاهده، دانلود و حذف فایل‌های دریافتی از مشتری (QR)",
   "upload.manage": "تنظیمات QR دریافت فایل (فعال/غیرفعال، سقف‌ها، تعویض کد)",
+  "upload.bulk_delete": "حذف گروهی فایل‌های دریافتی از مشتری",
 };
 export const PERMISSION_KEYS = Object.keys(PERMISSIONS);
 const ALL = new Set(PERMISSION_KEYS);

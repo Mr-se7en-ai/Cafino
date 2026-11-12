@@ -1,24 +1,23 @@
 // «دریافت فایل از مشتری»: QR اختصاصی هر کافی‌نت + فهرست فایل‌های رسیده (دانلود، وضعیت، حذف) + تنظیمات.
 // داده روی سرور نگه‌داری می‌شود (QR باید به یک نشانی اینترنتی اشاره کند)؛ بدون سرور فقط راهنما نشان داده می‌شود.
-import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import Icon from "../components/Icon.jsx";
 import { BTN, INP } from "../app/core/constants.js";
 import { toFA } from "../app/core/format.js";
 import { escapeHtml } from "../app/core/format.js";
-import { formatLogTimestamp } from "../app/core/activity.js";
 import { useShopInfo } from "../app/domain/invoiceData.js";
 import { printFontCss, printWhenReady } from "../app/core/printFont.js";
 import { WORDMARK_SVG } from "../app/components/brandAssets.js";
 import { isApiConnected, getApiConfig } from "../services/api/client.js";
 import { isGuestMode } from "../guest/guestMode.js";
 import { qrSvg } from "./qr.js";
-import { uploads, STATUS_LABEL, STATUS_COLOR, STATUSES, publicUploadUrl, fmtSize, groupBatches, downloadUpload, buildPosterHtml } from "./uploadsApi.js";
+import { uploads, publicUploadUrl, buildPosterHtml } from "./uploadsApi.js";
+import { useUploadsSummary } from "./uploadsBadge.js";
+import SessionsPanel from "./SessionsPanel.jsx";
+import FileManager from "./FileManager.jsx";
+import SettingsPanel from "./SettingsPanel.jsx";
+import { card, sub, msgOf, Note, Pill } from "./ui.jsx";
 
-const card = { background: "var(--bg-card)", borderRadius: 14, padding: 16, display: "flex", flexDirection: "column", gap: 12 };
-const sub = { fontSize: 12, color: "var(--text-muted)" };
-const msgOf = (e) => (e && (e.message || e.error)) || "خطای نامشخص";
-const Note = ({ kind = "info", children, ...r }) => { const c = kind === "error" ? "#f87171" : kind === "ok" ? "#34d399" : "#60a5fa"; return <div role={kind === "error" ? "alert" : "status"} {...r} style={{ background: `${c}18`, border: `1px solid ${c}55`, color: c, borderRadius: 10, padding: "8px 12px", fontSize: 12.5, lineHeight: 1.7 }}>{children}</div>; };
-const Pill = ({ color, children }) => <span style={{ background: `${color}22`, color, border: `1px solid ${color}55`, borderRadius: 20, padding: "1px 9px", fontSize: 11, fontWeight: 700, whiteSpace: "nowrap" }}>{children}</span>;
 
 export function QrCard({ settings, shopName, onRotate, canManage }) {
   const url = publicUploadUrl(settings);
@@ -53,112 +52,35 @@ export function QrCard({ settings, shopName, onRotate, canManage }) {
   );
 }
 
-function SettingsPanel({ settings, onSaved }) {
-  const [f, setF] = useState(() => ({ enabled: settings.enabled, maxFileMb: settings.maxFileMb, maxFiles: settings.maxFiles, retentionDays: settings.retentionDays, requirePhone: settings.requirePhone, notice: settings.notice || "" }));
-  const [busy, setBusy] = useState(false), [msg, setMsg] = useState(null);
-  const num = (k, min, max) => (e) => setF((s) => ({ ...s, [k]: Math.min(max, Math.max(min, Number(String(e.target.value).replace(/[^\d]/g, "")) || min)) }));
-  const save = async () => { setBusy(true); setMsg(null); try { const s = await uploads.saveSettings(f); onSaved(s); setMsg({ k: "ok", t: "ذخیره شد" }); } catch (e) { setMsg({ k: "error", t: msgOf(e) }); } finally { setBusy(false); } };
-  const used = settings.quotaBytes ? Math.min(100, Math.round((settings.usedBytes / settings.quotaBytes) * 100)) : 0;
-  return (
-    <div style={card} data-testid="up-settings">
-      <b style={{ fontSize: 14 }}>تنظیمات دریافت فایل</b>
-      <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13 }}><input type="checkbox" checked={f.enabled} onChange={(e) => setF({ ...f, enabled: e.target.checked })} />دریافت فایل از مشتری فعال باشد</label>
-      <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13 }}><input type="checkbox" checked={f.requirePhone} onChange={(e) => setF({ ...f, requirePhone: e.target.checked })} />شمارهٔ موبایل مشتری اجباری باشد</label>
-      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-        <label style={{ flex: "1 1 130px", fontSize: 12, color: "var(--text-muted)" }}>حداکثر حجم هر فایل (مگابایت)<input inputMode="numeric" value={f.maxFileMb} onChange={num("maxFileMb", 1, 100)} style={INP} /></label>
-        <label style={{ flex: "1 1 130px", fontSize: 12, color: "var(--text-muted)" }}>حداکثر تعداد فایل در هر ارسال<input inputMode="numeric" value={f.maxFiles} onChange={num("maxFiles", 1, 30)} style={INP} /></label>
-        <label style={{ flex: "1 1 130px", fontSize: 12, color: "var(--text-muted)" }}>نگه‌داری فایل‌ها (روز)<input inputMode="numeric" value={f.retentionDays} onChange={num("retentionDays", 1, 365)} style={INP} /></label>
-      </div>
-      <label style={{ fontSize: 12, color: "var(--text-muted)" }}>پیام نمایش‌داده‌شده به مشتری (اختیاری، حداکثر ۳۰۰ نویسه)<input maxLength={300} value={f.notice} onChange={(e) => setF({ ...f, notice: e.target.value })} style={INP} placeholder="مثلاً: چاپ رنگی هر برگ ۳٬۰۰۰ تومان" /></label>
-      <div style={sub}>فضای مصرفی: {fmtSize(settings.usedBytes)} از {fmtSize(settings.quotaBytes)} ({toFA(used)}٪) — فایل‌ها پس از مدت نگه‌داری خودکار پاک می‌شوند. فرمت‌های مجاز: {settings.allowedExts.join("، ")}</div>
-      {msg && <Note kind={msg.k}>{msg.t}</Note>}
-      <div><button data-testid="up-save" disabled={busy} onClick={save} style={BTN("#2563eb", "#fff", { opacity: busy ? .6 : 1 })}>ذخیرهٔ تنظیمات</button></div>
-    </div>
-  );
-}
-
-function FileRow({ f, onChanged, onError }) {
-  const [busy, setBusy] = useState(false);
-  const act = async (fn) => { setBusy(true); try { await fn(); } catch (e) { onError(msgOf(e)); } finally { setBusy(false); } };
-  return (
-    <div data-testid="up-file" style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", padding: "6px 0", borderTop: "1px solid var(--border)" }}>
-      <Icon name="FileText" size={16} style={{ color: "var(--text-muted)", flex: "none" }} />
-      <span dir="ltr" style={{ flex: "1 1 160px", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: "right", fontSize: 13 }} title={f.name}>{f.name}</span>
-      <span style={sub}>{fmtSize(f.size)}</span>
-      <Pill color={STATUS_COLOR[f.status]}>{STATUS_LABEL[f.status]}</Pill>
-      <select aria-label="وضعیت" disabled={busy} value={f.status} onChange={(e) => act(async () => { await uploads.setStatus(f.id, e.target.value); onChanged(); })} style={{ ...INP, width: "auto", marginTop: 0, padding: "5px 8px", fontSize: 12 }}>{STATUSES.map((s) => <option key={s} value={s}>{STATUS_LABEL[s]}</option>)}</select>
-      <button data-testid="up-dl" disabled={busy} onClick={() => act(async () => { await downloadUpload(f); onChanged(); })} style={BTN("#16a34a", "#fff", { padding: "5px 12px", fontSize: 12 })}>دانلود</button>
-      <button data-testid="up-del" disabled={busy} aria-label={`حذف ${f.name}`} onClick={() => { if (window.confirm(`«${f.name}» برای همیشه از سرور حذف شود؟`)) act(async () => { await uploads.remove(f.id); onChanged(); }); }} style={BTN("transparent", "#f87171", { padding: "5px 8px", fontSize: 12, border: "1px solid #f8717166" })}><Icon name="Trash2" size={14} /></button>
-    </div>
-  );
-}
-
 export default function UploadsPage() {
   const connected = isApiConnected(), guest = isGuestMode();
-  const [settings, setSettings] = useState(null);
-  const [list, setList] = useState({ items: [], newCount: 0, total: 0 });
-  const [filter, setFilter] = useState(""), [q, setQ] = useState("");
-  const [err, setErr] = useState(""), [loading, setLoading] = useState(true);
-  const timer = useRef(0);
-  const load = useCallback(async (quiet = false) => {
-    if (!quiet) setLoading(true);
-    try {
-      const [s, l] = await Promise.all([uploads.settings(), uploads.list({ status: filter, q: q.trim(), limit: 100 })]);
-      setSettings(s); setList({ items: l?.data || [], newCount: l?.meta?.newCount || 0, total: l?.meta?.total || 0 }); setErr("");
-    } catch (e) { setErr(msgOf(e)); } finally { setLoading(false); }
-  }, [filter, q]);
-  useEffect(() => { if (!connected || guest) return undefined; const t = setTimeout(() => load(), 250); return () => clearTimeout(t); }, [load, connected, guest]);
-  useEffect(() => {   // فایل تازه رسیده را بدون رفرش ببینید: هر ۲۰ ثانیه (فقط وقتی تب دیده می‌شود)
-    if (!connected || guest) return undefined;
-    timer.current = setInterval(() => { if (document.visibilityState === "visible") load(true); }, 20000);
-    return () => clearInterval(timer.current);
-  }, [load, connected, guest]);
+  const [settings, setSettings] = useState(null), [err, setErr] = useState(""), [sessionFilter, setSessionFilter] = useState(""), [tick, setTick] = useState(0);
+  const sum = useUploadsSummary();
+  const [shop] = useShopInfo();
+  const loadSettings = useCallback(async () => { try { const s = await uploads.settings(); setSettings(s); setErr(""); } catch (e) { setErr(msgOf(e)); } }, []);
+  useEffect(() => { if (!connected || guest) return undefined; loadSettings(); const t = setInterval(() => { if (document.visibilityState === "visible") loadSettings(); }, 20000); return () => clearInterval(t); }, [loadSettings, connected, guest]);
   const rotate = async () => {
     if (!window.confirm("با تعویض کد، QR و نشانی قبلی (و پوسترهای چاپ‌شده) از کار می‌افتد و باید دوباره چاپ کنید. ادامه می‌دهید؟")) return;
-    try { setSettings(await uploads.rotateCode()); } catch (e) { setErr(msgOf(e)); }
+    try { const s = await uploads.rotateCode(); setSettings((p) => ({ ...p, ...s })); } catch (e) { setErr(msgOf(e)); }
   };
-  const batches = useMemo(() => groupBatches(list.items), [list.items]);
   return (
-    <div data-testid="uploads-page" style={{ maxWidth: 900, display: "flex", flexDirection: "column", gap: 12 }}>
+    <div data-testid="uploads-page" style={{ maxWidth: 940, display: "flex", flexDirection: "column", gap: 12 }}>
       <div style={card}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
           <Icon name="QrCode" size={20} style={{ color: "var(--accent-light)" }} />
           <b style={{ fontSize: 17 }}>دریافت فایل از مشتری</b>
-          {list.newCount > 0 && <Pill color="#f59e0b">{toFA(list.newCount)} فایل جدید</Pill>}
+          {sum.newCount > 0 && <Pill color="#f59e0b" data-testid="up-new-pill">{toFA(sum.newCount)} فایل جدید</Pill>}
         </div>
-        <div style={sub}>هر کافی‌نت یک QR مخصوص خود دارد. مشتری فایل را از گوشی می‌فرستد و بدون ورود یا نصب برنامه به این صفحه می‌رسد.</div>
+        <div style={sub}>QR دائمی کافی‌نت را کنار صندوق بزنید یا برای هر سفارش یک QR موقت بسازید. مشتری فایل را از گوشی می‌فرستد و بدون ورود یا نصب برنامه به این صفحه می‌رسد.</div>
       </div>
       {(!connected || guest)
         ? <div style={card} data-testid="up-offline"><Note>{guest ? "در حالت مهمان این بخش در دسترس نیست." : "این بخش به اتصال سرور نیاز دارد، چون QR باید به یک نشانی اینترنتی اشاره کند و فایل‌ها روی سرور نگه‌داری می‌شوند. سرور را مطابق راهنمای استقرار راه‌اندازی کنید."}</Note></div>
         : <>
-          {err && <Note kind="error" data-testid="up-error">{err}</Note>}
-          {settings && <QrCard settings={settings} onRotate={rotate} canManage={settings.canManage} />}
-          <div style={card}>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-              <b style={{ fontSize: 14 }}>فایل‌های دریافتی</b>
-              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                {[["", "همه"], ...STATUSES.map((s) => [s, STATUS_LABEL[s]])].map(([k, l]) => <button key={k || "all"} data-testid={`up-f-${k || "all"}`} aria-pressed={filter === k} onClick={() => setFilter(k)} style={BTN(filter === k ? "#2563eb" : "var(--bg-app)", filter === k ? "#fff" : "var(--text-secondary)", { padding: "4px 12px", fontSize: 12 })}>{l}</button>)}
-              </div>
-              <input data-testid="up-search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="جستجو: کد پیگیری، نام، موبایل، فایل" style={{ ...INP, marginTop: 0, flex: "1 1 200px", maxWidth: 320, padding: "6px 10px", fontSize: 12 }} />
-              <button onClick={() => load()} style={BTN("var(--border)", "var(--text-secondary)", { padding: "5px 12px", fontSize: 12 })}>بازخوانی</button>
-            </div>
-            {loading && !list.items.length ? <div style={sub}>در حال بارگیری…</div>
-              : !batches.length ? <div style={sub} data-testid="up-empty">{filter || q ? "موردی با این فیلتر پیدا نشد." : "هنوز فایلی نرسیده است. پوستر QR را چاپ و کنار صندوق بزنید."}</div>
-              : batches.map((b) => (
-                <div key={b.batchId} data-testid="up-batch" style={{ background: "var(--bg-app)", borderRadius: 12, padding: "10px 12px" }}>
-                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", marginBottom: 4 }}>
-                    <b data-testid="up-code" dir="ltr" style={{ fontSize: 16, letterSpacing: 2, color: "var(--accent-light)" }}>#{toFA(b.batchCode)}</b>
-                    <span style={{ fontSize: 13, fontWeight: 600 }}>{b.senderName || "ناشناس"}</span>
-                    {b.senderPhone && <span dir="ltr" style={sub}>{toFA(b.senderPhone)}</span>}
-                    <span style={{ ...sub, marginInlineStart: "auto" }}>{formatLogTimestamp(b.createdAt)}</span>
-                  </div>
-                  {b.note && <div style={{ fontSize: 12.5, color: "var(--text-secondary)", marginBottom: 2 }}>📝 {b.note}</div>}
-                  {b.files.map((f) => <FileRow key={f.id} f={f} onChanged={() => load(true)} onError={setErr} />)}
-                </div>
-              ))}
-            {list.total > list.items.length && <div style={sub}>{toFA(list.items.length)} مورد از {toFA(list.total)} نمایش داده شد؛ برای دیدن بقیه جستجو یا فیلتر کنید.</div>}
-          </div>
-          {settings?.canManage && <SettingsPanel key={settings.updatedAt} settings={settings} onSaved={setSettings} />}
+          {err && <Note kind="error" data-testid="up-error-top">{err}</Note>}
+          {settings && <QrCard settings={settings} shopName={shop?.name} onRotate={rotate} canManage={settings.canManage} />}
+          {settings && <SessionsPanel shopName={shop?.name} activeFilter={sessionFilter} onFilter={setSessionFilter} onChanged={() => setTick((t) => t + 1)} />}
+          {settings && <FileManager settings={settings} sessionFilter={sessionFilter} onSessionFilter={setSessionFilter} refreshKey={tick} />}
+          {settings?.canManage && <SettingsPanel key={settings.updatedAt} settings={settings} blocked7d={sum.blocked7d} onSaved={(s) => setSettings((p) => ({ ...p, ...s }))} />}
         </>}
     </div>
   );

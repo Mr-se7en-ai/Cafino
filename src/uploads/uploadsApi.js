@@ -12,7 +12,62 @@ export const uploads = {
   list: (q) => apiRequest(`/api/uploads${qs(q)}`, { rawEnvelope: true }),   // {data, meta:{newCount,total}}
   setStatus: (id, status) => apiRequest(`/api/uploads/${encodeURIComponent(id)}`, J("PATCH", { status })),
   remove: (id) => apiRequest(`/api/uploads/${encodeURIComponent(id)}`, { method: "DELETE" }),
+  patch: (id, body) => apiRequest(`/api/uploads/${encodeURIComponent(id)}`, J("PATCH", body)),     // {status?, name?, protected?}
+  rename: (id, name) => uploads.patch(id, { name }),
+  protect: (id, on) => uploads.patch(id, { protected: !!on }),
+  link: (body) => apiRequest("/api/uploads/link", J("POST", body)),                               // {ids|batchId, orderRef, orderLabel, customerRef, customerLabel}
+  bulkDelete: (ids) => apiRequest("/api/uploads/bulk-delete", J("POST", { ids })),
+  bulkStatus: (ids, status) => apiRequest("/api/uploads/bulk-status", J("POST", { ids, status })),
+  summary: () => apiRequest("/api/uploads/summary"),
+  blocked: () => apiRequest("/api/uploads/blocked"),
+  sessions: (q) => apiRequest(`/api/uploads/sessions${qs(q)}`),
+  createSession: (body) => apiRequest("/api/uploads/sessions", J("POST", body)),
+  closeSession: (id) => apiRequest(`/api/uploads/sessions/${encodeURIComponent(id)}/close`, J("POST")),
 };
+
+export const SORTS = [["created", "تاریخ دریافت"], ["name", "نام فایل"], ["size", "حجم"], ["status", "وضعیت"]];
+const EXT = (n) => { const m = /\.([A-Za-z0-9]{1,6})$/.exec(String(n || "")); return m ? m[1].toLowerCase() : ""; };
+export const fileKind = (name) => { const e = EXT(name); return e === "pdf" ? "pdf" : ["jpg", "jpeg", "png", "webp"].includes(e) ? "image" : ["txt", "csv"].includes(e) ? "text" : "other"; };
+export const MIME_OF = { pdf: "application/pdf", jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp", txt: "text/plain", csv: "text/csv" };
+
+/** درخواست احراز‌شده با fetch (برای دانلود و ارسال FormData). ۴۰۱ → یک‌بار تازه‌سازی نشست و تلاش دوباره. */
+export async function authFetch(path, init = {}, { fetchImpl = globalThis.fetch } = {}) {
+  const run = () => {
+    const { baseUrl } = getApiConfig(), token = getAuthToken();
+    return fetchImpl(`${String(baseUrl).replace(/\/+$/, "")}${path}`, { ...init, headers: { ...(init.headers || {}), ...(token ? { Authorization: `Bearer ${token}` } : {}) }, credentials: "include" });
+  };
+  let res = await run();
+  if (res.status === 401) { try { await uploads.settings(); } catch { /* نشست تازه نشد */ } res = await run(); }
+  return res;
+}
+const failMsg = async (res) => { let m = ""; try { m = (await res.json())?.error?.message || ""; } catch { /* ignore */ } return m || (res.status === 410 ? "فایل از روی سرور حذف شده است" : `درخواست ناموفق (${res.status})`); };
+/** بایت‌های فایل دریافتی (برای پیش‌نمایش و ابزارها). فایل «جدید» با این کار «دیده‌شده» می‌شود. */
+export async function fetchUploadBytes(item, opts) {
+  const res = await authFetch(`/api/uploads/${encodeURIComponent(item.id)}/download`, {}, opts);
+  if (!res.ok) throw new Error(await failMsg(res));
+  return new Uint8Array(await res.arrayBuffer());
+}
+/** ذخیرهٔ نتیجهٔ ابزار PDF به‌عنوان فایل جدید در همان ارسال/سفارش. */
+export async function deriveUpload(fromItem, name, bytes, opts) {
+  const fd = new FormData();
+  fd.append("from", fromItem.id); fd.append("name", name);
+  fd.append("file", new Blob([bytes], { type: MIME_OF[EXT(name)] || "application/octet-stream" }), name);
+  const res = await authFetch("/api/uploads/derive", { method: "POST", body: fd }, opts);
+  if (!res.ok) throw new Error(await failMsg(res));
+  return (await res.json())?.data;
+}
+export function saveBlob(bytes, name, type = "application/octet-stream") {
+  const url = URL.createObjectURL(new Blob([bytes], { type })), a = document.createElement("a");
+  a.href = url; a.download = name || "file"; a.rel = "noopener"; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 30000);
+}
+/** مدت باقی‌مانده تا انقضای QR موقت به فارسی. */
+export function timeLeft(expiresAt, now = Date.now()) {
+  const ms = new Date(expiresAt).getTime() - now; if (!(ms > 0)) return "منقضی شد";
+  const m = Math.ceil(ms / 60000), h = Math.floor(m / 60), d = Math.floor(h / 24);
+  return d >= 1 ? `${d} روز` : h >= 1 ? `${h} ساعت${m % 60 ? ` و ${m % 60} دقیقه` : ""}` : `${m} دقیقه`;
+}
+export const TTL_OPTIONS = [[30, "۳۰ دقیقه"], [60, "۱ ساعت"], [240, "۴ ساعت"], [1440, "۱ روز"], [4320, "۳ روز"], [10080, "۷ روز"]];
 
 export const STATUS_LABEL = { new: "جدید", seen: "دیده‌شده", printed: "چاپ‌شده", done: "انجام‌شده" };
 export const STATUS_COLOR = { new: "#f59e0b", seen: "#60a5fa", printed: "#a78bfa", done: "#34d399" };
@@ -36,7 +91,7 @@ export function fmtSize(n) {
 export function groupBatches(items) {
   const map = new Map();
   for (const it of items || []) {
-    if (!map.has(it.batchId)) map.set(it.batchId, { batchId: it.batchId, batchCode: it.batchCode, senderName: it.senderName, senderPhone: it.senderPhone, note: it.note, createdAt: it.createdAt, files: [] });
+    if (!map.has(it.batchId)) map.set(it.batchId, { batchId: it.batchId, batchCode: it.batchCode, senderName: it.senderName, senderPhone: it.senderPhone, note: it.note, createdAt: it.createdAt, orderLabel: it.orderLabel, customerLabel: it.customerLabel, files: [] });
     map.get(it.batchId).files.push(it);
   }
   return [...map.values()].sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
@@ -44,18 +99,9 @@ export function groupBatches(items) {
 
 /** دانلود امن: با هدر Authorization (دانلود ساده با لینک ممکن نیست چون توکن در کوکی/هدر است). Blob → ذخیره با نام اصلی. */
 export async function downloadUpload(item, { fetchImpl = globalThis.fetch } = {}) {
-  const run = async () => {
-    const { baseUrl } = getApiConfig();
-    const token = getAuthToken();
-    return fetchImpl(`${String(baseUrl).replace(/\/+$/, "")}/api/uploads/${encodeURIComponent(item.id)}/download`, { headers: token ? { Authorization: `Bearer ${token}` } : {}, credentials: "include" });
-  };
-  let res = await run();
-  if (res.status === 401) { try { await uploads.settings(); } catch { /* نشست تازه نشد */ } res = await run(); }   // درخواست عادی توکن را تازه می‌کند
-  if (!res.ok) { let m = ""; try { m = (await res.json())?.error?.message || ""; } catch { /* ignore */ } throw new Error(m || (res.status === 410 ? "فایل از روی سرور حذف شده است" : `دانلود ناموفق (${res.status})`)); }
-  const blob = await res.blob();
-  const url = URL.createObjectURL(blob), a = document.createElement("a");
-  a.href = url; a.download = item.name || "file"; a.rel = "noopener"; document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 30000);
+  const res = await authFetch(`/api/uploads/${encodeURIComponent(item.id)}/download`, {}, { fetchImpl });
+  if (!res.ok) throw new Error(await failMsg(res));
+  saveBlob(await res.blob(), item.name);
 }
 
 /** HTML پوستر چاپی A4: لوگو، نام کافی‌نت، QR بزرگ، راهنمای سه‌مرحله‌ای و نشانی. همهٔ مقدارها قبلاً escape شده باید باشند. */
