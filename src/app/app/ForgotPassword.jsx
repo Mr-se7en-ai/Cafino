@@ -1,6 +1,7 @@
 // «فراموشی رمز عبور» + نمایش کد بازیابی
 //  • حالت سرور: ایمیل ← سرور لینک/کد یک‌بارمصرف می‌فرستد ← کد + رمز جدید (POST /api/auth/forgot-password و /reset-password)
 //  • حالت محلی (فقط توسعه/دمو): ایمیل + کد بازیابی که هنگام ثبت‌نام نمایش داده شده + رمز جدید
+import { localAccountsAllowed } from "../../services/auth/localPolicy.js";
 import React, { useState } from "react";
 import { apiResources } from "../../services/api/client.js";
 import { resetPasswordWithRecoveryCode, validateNewPassword } from "../../services/auth/localAuth.js";
@@ -64,7 +65,7 @@ export function ForgotPasswordForm({remote,initialEmail="",onBack,onRecoveryCode
         audit({action:"password_reset",entityType:"حساب",entityLabel:email.trim().toLowerCase(),details:"از طریق ایمیل"});
         setBusy(false);onBack("رمز عبور تغییر کرد؛ با رمز جدید وارد شوید.");return;
       }
-      if(!import.meta.env.DEV){fail("بازیابی رمز در این نسخه فعال نیست؛ با مدیر سیستم تماس بگیرید.");setBusy(false);return;}
+      if(!localAccountsAllowed()){fail("بازیابی رمز در این نسخه فعال نیست؛ با مدیر سیستم تماس بگیرید.");setBusy(false);return;}
       const r=await resetPasswordWithRecoveryCode(email,code,pw);
       if(!r.ok){fail(r.error);setBusy(false);return;}
       audit({action:"password_reset",entityType:"حساب",entityLabel:email.trim().toLowerCase(),details:"با کد بازیابی"});

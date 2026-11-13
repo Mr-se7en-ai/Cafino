@@ -32,7 +32,7 @@ function AvBox({ av }) {
 }
 
 export default function SettingsPanel({ settings, onSaved }) {
-  const [f, setF] = useState(() => ({ enabled: settings.enabled, maxFileMb: settings.maxFileMb, maxFiles: settings.maxFiles, retentionDays: settings.retentionDays, doneRetentionDays: settings.doneRetentionDays ?? 7, requirePhone: settings.requirePhone, notice: settings.notice || "" }));
+  const [f, setF] = useState(() => ({ enabled: settings.enabled, maxFileMb: settings.maxFileMb, maxFiles: settings.maxFiles, retentionDays: settings.retentionDays, doneRetentionDays: settings.doneRetentionDays ?? 7, requirePhone: settings.requirePhone, notice: settings.notice || "", showShopInfo: settings.showShopInfo !== false }));
   const [busy, setBusy] = useState(false), [msg, setMsg] = useState(null), [sound, setSound] = useState(getSoundOn()), [perm, setPerm] = useState(() => (typeof Notification === "undefined" ? "unsupported" : Notification.permission));
   const num = (k, min, max) => (e) => setF((s) => ({ ...s, [k]: Math.min(max, Math.max(min, Number(String(e.target.value).replace(/[^\d]/g, "")) || min)) }));
   const save = async () => { setBusy(true); setMsg(null); try { const s = await uploads.saveSettings(f); onSaved(s); setMsg({ k: "ok", t: "ذخیره شد" }); } catch (e) { setMsg({ k: "error", t: msgOf(e) }); } finally { setBusy(false); } };
@@ -52,6 +52,16 @@ export default function SettingsPanel({ settings, onSaved }) {
       </div>
       <label style={{ fontSize: 12, color: "var(--text-muted)" }}>پیام نمایش‌داده‌شده به مشتری (اختیاری، حداکثر ۳۰۰ نویسه)<input maxLength={300} value={f.notice} onChange={(e) => setF({ ...f, notice: e.target.value })} style={INP} placeholder="مثلاً: چاپ رنگی هر برگ ۳٬۰۰۰ تومان" /></label>
       <div style={sub}>فضای مصرفی: {fmtSize(settings.usedBytes)} از {fmtSize(settings.quotaBytes)} ({toFA(used)}٪). فایل‌های موقت پس از مدت بالا خودکار پاک می‌شوند، مگر «نگه‌داری ویژه» (🔒) شده باشند. فرمت‌های مجاز: {settings.allowedExts.join("، ")}</div>
+      <div data-testid="up-shopinfo" style={{ background: "var(--bg-app)", borderRadius: 10, padding: "10px 12px", display: "flex", flexDirection: "column", gap: 6 }}>
+        <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13 }}><input data-testid="up-show-shop" type="checkbox" checked={f.showShopInfo} onChange={(e) => setF({ ...f, showShopInfo: e.target.checked })} />مشخصات کافی‌نت (نام، نشانی، تلفن، لوگو) در صفحهٔ مشتری نمایش داده شود</label>
+        <div style={sub}>این مشخصات از «پروفایل فروشگاه» خوانده می‌شود و با هر تغییر آنجا خودکار به‌روز می‌شود؛ برای ویرایش به پروفایل فروشگاه بروید. هر کسی که QR را اسکن کند آن را می‌بیند، پس چیزی که نمی‌خواهید عمومی باشد را در پروفایل نگذارید یا این گزینه را خاموش کنید.</div>
+        {f.showShopInfo && <div data-testid="up-shopinfo-now" style={{ fontSize: 12.5, lineHeight: 1.9 }}>
+          <div>نام: <b>{settings.shopName || "نام ثبت‌شدهٔ کافی‌نت در سرور"}</b></div>
+          <div>نشانی: {settings.shopAddress || "—"}</div>
+          <div>تلفن: {[settings.shopPhone, settings.shopMobile].filter(Boolean).map(toFA).join(" — ") || "—"}</div>
+          <div>لوگو: {settings.hasLogo ? "ارسال شده ✓" : "ندارد (در پروفایل فروشگاه لوگو بگذارید)"}</div>
+        </div>}
+      </div>
       <AvBox av={settings.av} />
       <div style={{ background: "var(--bg-app)", borderRadius: 10, padding: "10px 12px", display: "flex", flexDirection: "column", gap: 6 }} data-testid="up-notify">
         <b style={{ fontSize: 13 }}>اعلان فایل تازه</b>

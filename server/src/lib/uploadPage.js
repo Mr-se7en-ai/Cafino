@@ -3,13 +3,19 @@
 // که با رمز اختصاصی همان ارسال خوانده می‌شود؛ مشتری هیچ‌گاه فهرست یا فایل دیگران را نمی‌بیند.
 import crypto from "node:crypto";
 
-const CSS = String.raw`*{box-sizing:border-box}html{-webkit-text-size-adjust:100%}
+const CSS = String.raw`@font-face{font-family:Vazirmatn;font-style:normal;font-weight:400;font-display:swap;src:url(/u/assets/vazirmatn-400.woff2) format("woff2")}
+@font-face{font-family:Vazirmatn;font-style:normal;font-weight:700;font-display:swap;src:url(/u/assets/vazirmatn-700.woff2) format("woff2")}
+*{box-sizing:border-box}html{-webkit-text-size-adjust:100%}
 :root{--bg:#fff7f0;--card:#fff;--ink:#2b1610;--mut:#7a5a4a;--bd:#f0d9c8;--ac:#e8590c;--ac2:#ff9a3c;--ok:#15803d;--err:#b91c1c;--warn:#b45309}
 @media (prefers-color-scheme:dark){:root{--bg:#1c1109;--card:#2a1810;--ink:#fbeee2;--mut:#c9ab96;--bd:#4a3020;--ac:#ff9a3c;--ac2:#e8590c;--ok:#4ade80;--err:#f87171;--warn:#fbbf24}}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:Vazirmatn,Tahoma,"Segoe UI",system-ui,sans-serif;line-height:1.7;min-height:100vh;display:flex;justify-content:center;padding:16px}
 main{width:100%;max-width:520px}
 header{display:flex;align-items:center;gap:12px;margin:8px 4px 16px}
-header svg{width:52px;height:52px;flex:none}
+header svg,header .lg{width:52px;height:52px;flex:none}
+header .lg{object-fit:contain;border-radius:12px;background:#fff;border:1px solid var(--bd);padding:3px}
+.logos{display:flex;align-items:center;gap:8px;flex:none}.logos .sep{width:1px;height:34px;background:var(--bd)}
+.shop{margin:-6px 4px 14px;font-size:13px;color:var(--mut);display:flex;flex-direction:column;gap:2px}.shop a{color:inherit;text-decoration:none;direction:ltr;unicode-bidi:plaintext}
+body{font-weight:400}h1,.btn,.chip,.st,b{font-weight:700}
 h1{font-size:19px;margin:0}header p{margin:0;color:var(--mut);font-size:13px}
 .card{background:var(--card);border:1px solid var(--bd);border-radius:18px;padding:18px;box-shadow:0 6px 24px #0001;margin-bottom:12px}
 .notice{background:#fff3e6;color:#7c2d12;border:1px solid #fed7aa;border-radius:12px;padding:10px 12px;margin-bottom:14px;font-size:14px}
@@ -46,7 +52,8 @@ footer{text-align:center;color:var(--mut);font-size:12px;margin:14px 0 4px}
 const LOGO = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="کافینو"><defs><linearGradient id="ig" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff9a3c"/><stop offset="1" stop-color="#c2410c"/></linearGradient></defs><rect width="512" height="512" rx="116" fill="url(#ig)"/><g fill="none" stroke="#fff" stroke-width="22" stroke-linecap="round"><path d="M219 171 A53 53 0 0 1 293 171"/><path d="M193 145 A89 89 0 0 1 319 145"/><path d="M168 120 A125 125 0 0 1 344 120"/></g><circle cx="256" cy="208" r="25" fill="#2b1610"/><path d="M286.9 472.8H247.0Q219.8 472.8 196.8 469.4Q173.7 466.0 156.8 457.5Q139.8 449.0 130.4 433.6Q121.0 418.2 121.0 394.2Q121.0 380.0 124.2 366.5Q127.3 353.0 132.1 341.4L170.1 355.8Q167.4 363.2 164.7 373.0Q161.9 382.8 161.9 391.7Q161.9 407.4 173.6 415.0Q185.3 422.6 204.6 424.9Q223.9 427.2 247.0 427.2H286.8Q312.1 427.2 324.7 423.6Q337.3 420.1 337.3 409.0Q337.3 403.8 329.6 396.9Q321.8 390.1 310.2 382.4Q298.6 374.8 286.6 367.3Q274.5 359.8 265.6 353.4Q259.2 348.7 255.7 340.8Q252.2 332.9 252.2 324.7Q252.2 315.9 256.3 308.1Q260.4 300.4 269.1 296.9L391.0 247.2V292.3L305.7 326.9Q326.9 339.6 343.2 351.6Q359.4 363.7 368.7 377.6Q378.1 391.5 378.1 409.7Q378.1 434.4 366.7 448.2Q355.3 461.9 334.8 467.4Q314.3 472.8 286.9 472.8Z" fill="#fff"/></svg>`;
 
 const BODY = `<main>
-<header>${LOGO}<div><h1 id="cafe">…</h1><p id="sub">ارسال فایل برای چاپ یا کار روی آن — کافینو</p></div></header>
+<header><div class="logos"><img id="shopLogo" class="lg hide" alt="" width="52" height="52">${LOGO}</div><div><h1 id="cafe">…</h1><p id="sub">ارسال فایل برای چاپ یا کار روی آن — کافینو</p></div></header>
+<div class="shop hide" id="shop"><div id="shopAddr" class="hide"></div><div id="shopTel" class="hide"></div></div>
 <div class="card" id="mainCard">
 <div id="closed" class="msg err hide" role="alert"></div>
 <div id="notice" class="notice hide"></div>
@@ -150,6 +157,18 @@ fetch(API,{headers:{accept:"application/json"},cache:"no-store"}).then(function(
   info=x.j.data;if(info.serverTime)skew=Date.parse(info.serverTime)-Date.now();
   $("cafe").textContent=info.cafeName;document.title="ارسال فایل به "+info.cafeName;
   if(info.label){$("sub").textContent=info.label}
+  var sh=info.shop;if(sh){
+    if(sh.logo){var lg=$("shopLogo");lg.onload=function(){show("shopLogo",true)};lg.onerror=function(){show("shopLogo",false)};lg.alt=info.cafeName;lg.src="/u/"+encodeURIComponent(code)+"/"+sh.logo}
+    if(sh.address){$("shopAddr").textContent="📍 "+sh.address;show("shopAddr",true)}
+    var tels=[sh.phone,sh.mobile].filter(Boolean);
+    if(tels.length){var t=$("shopTel");t.textContent="📞 ";tels.forEach(function(v,i){
+      if(i)t.appendChild(document.createTextNode(" — "));
+      var a=document.createElement("a");a.textContent=v;
+      var d=String(v).replace(/[۰-۹]/g,function(c){return "۰۱۲۳۴۵۶۷۸۹".indexOf(c)}).replace(/[\s\-()]/g,"");
+      if(/^\+?[0-9]{5,15}$/.test(d))a.href="tel:"+d;
+      t.appendChild(a)});show("shopTel",true)}
+    if(sh.address||tels.length)show("shop",true)
+  }
   if(info.notice){var n=$("notice");n.textContent=info.notice;show("notice",true)}
   $("hint").textContent="هر فایل تا "+fa(info.maxFileMb)+" مگابایت\nفرمت‌های مجاز: "+info.allowedExts.join("، ");
   if(info.requirePhone){$("phoneLbl").textContent="شمارهٔ موبایل (لازم)";}
@@ -198,5 +217,5 @@ const hash = (s) => `'sha256-${crypto.createHash("sha256").update(s, "utf8").dig
 export const UPLOAD_PAGE_HTML = HTML;
 export const UPLOAD_PAGE_CSP = [
   "default-src 'none'", `script-src ${hash(JS)}`, `style-src ${hash(CSS)}`,
-  "img-src data:", "connect-src 'self'", "form-action 'none'", "base-uri 'none'", "frame-ancestors 'none'",
+  "img-src 'self' data:", "font-src 'self'", "connect-src 'self'", "form-action 'none'", "base-uri 'none'", "frame-ancestors 'none'",
 ].join("; ");
