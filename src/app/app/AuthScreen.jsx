@@ -13,6 +13,7 @@ import { APP_BRAND } from "../core/version.js";
 import { enterGuestMode } from "../../guest/guestMode.js";
 import { useSkin } from "../../skins/useSkin.js";
 import { SHOW_SERVER_SETTINGS } from "../core/features.js";
+import { localAccountsAllowed, LOCAL_ACCOUNTS_NOTICE } from "../../services/auth/localPolicy.js";
 
 
 // ══════════════════════════════════════════════════════════════════
@@ -75,7 +76,7 @@ export function AuthScreen({onLoggedIn,theme,customFont}){
         setBusy(false);
         return;
       }
-      if(!import.meta.env.DEV){setErr("ورود با حساب در این نسخه فعال نیست؛ برای آزمایش از «ورود مهمان» استفاده کنید یا با مدیر سیستم تماس بگیرید.");setBusy(false);return;}
+      if(!localAccountsAllowed()){setErr("ورود با حساب در این نسخه فعال نیست؛ برای آزمایش از «ورود مهمان» استفاده کنید یا با مدیر سیستم تماس بگیرید.");setBusy(false);return;}
       const emailKey=email.trim().toLowerCase();
       if(mode==="register"){
         if(password!==password2){setErr("تکرار رمز عبور مطابقت ندارد");setBusy(false);return;}
@@ -105,6 +106,7 @@ export function AuthScreen({onLoggedIn,theme,customFont}){
           <div style={{fontSize:12,color:"var(--text-secondary)",marginTop:3}}>{APP_BRAND.tagline}</div>
           <div style={{fontSize:12,color:"var(--text-muted)",marginTop:4}}>{recovery?"کد بازیابی":mode==="forgot"?"فراموشی رمز عبور":mode==="login"?"ورود به حساب کاربری":"ساخت حساب کاربری جدید"}</div>
         </div>
+        {!remoteAuth&&!recovery&&localAccountsAllowed()&&<div data-testid="local-accounts-notice" role="note" style={{fontSize:11.5,lineHeight:1.9,color:"var(--text-secondary)",background:"rgba(245,158,11,.1)",border:"1px solid rgba(245,158,11,.35)",borderRadius:10,padding:"8px 10px",marginBottom:14}}>{LOCAL_ACCOUNTS_NOTICE}</div>}
 
         {recovery?(
           <RecoveryCodeNotice code={recovery.code} title={recovery.title} onDone={recovery.after}/>

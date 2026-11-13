@@ -48,10 +48,15 @@ export async function registerUploads(app) {
   };
   const usage = async (c, cafeId) => Number((await c.query("SELECT COALESCE(SUM(size),0)::bigint AS s FROM customer_uploads WHERE cafe_id=$1 AND deleted_at IS NULL", [cafeId])).rows[0].s);
   const avInfo = async () => ({ mode: av.mode, engine: av.engine, available: av.mode === "off" ? false : await av.available() });
+  // متن تک‌خطی بدون نویسهٔ کنترلی؛ برای مشخصاتی که روی صفحهٔ عمومی نشان داده می‌شود.
+  const oneLine = (v, max, key) => toText(String(v ?? "").replace(/[\u0000-\u001f\u007f\u2028\u2029\u200e\u200f\u202a-\u202e\u2066-\u2069]+/g, " "), { max, key }).trim();
+  const shopOf = (s) => (s.show_shop_info === false ? null : { name: s.shop_name || "", address: s.shop_address || "", phone: s.shop_phone || "", mobile: s.shop_mobile || "", logo: s.shop_logo_hash ? `logo?v=${s.shop_logo_hash.slice(0, 16)}` : "" });
+  const sniffLogo = (b) => (b.length > 8 && b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47 ? "image/png" : b.length > 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff ? "image/jpeg" : b.length > 12 && b.toString("latin1", 0, 4) === "RIFF" && b.toString("latin1", 8, 12) === "WEBP" ? "image/webp" : null);
   const shapeSettings = (s, used) => ({
     code: s.code, path: `/u/${s.code}`, url: cfg.publicBaseUrl ? `${cfg.publicBaseUrl}/u/${s.code}` : null, enabled: s.enabled,
     maxFileMb: s.max_file_mb, maxFiles: s.max_files, retentionDays: s.retention_days, doneRetentionDays: s.done_retention_days, requirePhone: s.require_phone, notice: s.notice,
     allowedExts: ALLOWED_EXTS, usedBytes: used, quotaBytes: cfg.uploadQuotaMb * 1048576, updatedAt: s.updated_at,
+    showShopInfo: s.show_shop_info, shopName: s.shop_name || "", shopAddress: s.shop_address || "", shopPhone: s.shop_phone || "", shopMobile: s.shop_mobile || "", hasLogo: !!s.shop_logo_hash, logoHash: s.shop_logo_hash || "",
   });
   const shapeSession = (r, n = 0) => {
     const now = Date.now(), exp = new Date(r.expires_at).getTime();
@@ -131,7 +136,7 @@ export async function registerUploads(app) {
   /** کد را به «QR دائمی کافی‌نت» یا «QR موقت سفارش» ترجمه می‌کند. strict=false: برای خواندن وضعیت، بسته/منقضی‌بودن مانع نیست. */
   const byCode = async (code, { strict = true } = {}) => {
     if (!isCode(code)) throw notFound("این نشانی معتبر نیست");
-    const sr = await pool.query(`SELECT ss.*, s.enabled, s.max_file_mb AS shop_mb, s.max_files AS shop_files, s.require_phone, s.notice, c.name AS cafe_name, c.status AS cafe_status
+    const sr = await pool.query(`SELECT ss.*, s.enabled, s.max_file_mb AS shop_mb, s.max_files AS shop_files, s.require_phone, s.notice, s.show_shop_info, s.shop_name, s.shop_address, s.shop_phone, s.shop_mobile, s.shop_logo_hash, c.name AS cafe_name, c.status AS cafe_status
       FROM upload_sessions ss JOIN upload_settings s ON s.cafe_id = ss.cafe_id JOIN cafes c ON c.id = ss.cafe_id WHERE ss.code = $1`, [code]);
     const ss = sr.rows[0];
     if (ss) {
@@ -140,13 +145,13 @@ export async function registerUploads(app) {
         if (ss.closed_at) throw new HttpError(410, "session_closed", "این QR بسته شده است. از کارمند یک QR تازه بگیرید");
         if (new Date(ss.expires_at).getTime() <= Date.now()) throw new HttpError(410, "session_expired", "مهلت این QR تمام شده است. از کارمند یک QR تازه بگیرید");
       }
-      return { kind: "session", cafeId: ss.cafe_id, cafeName: ss.cafe_name, session: ss, label: ss.label, expiresAt: ss.expires_at, maxFileMb: Math.min(ss.shop_mb, ss.max_file_mb || ss.shop_mb), maxFiles: Math.min(ss.shop_files, ss.max_files), requirePhone: ss.require_phone, notice: ss.notice };
+      return { kind: "session", cafeId: ss.cafe_id, cafeName: ss.cafe_name, session: ss, label: ss.label, expiresAt: ss.expires_at, maxFileMb: Math.min(ss.shop_mb, ss.max_file_mb || ss.shop_mb), maxFiles: Math.min(ss.shop_files, ss.max_files), requirePhone: ss.require_phone, notice: ss.notice, shop: shopOf(ss), cafeLabel: ss.shop_name || ss.cafe_name };
     }
     const r = await pool.query("SELECT s.*, c.name AS cafe_name, c.status AS cafe_status FROM upload_settings s JOIN cafes c ON c.id = s.cafe_id WHERE s.code = $1", [code]);
     const s = r.rows[0];
     if (!s) throw notFound("این نشانی معتبر نیست");
     if (strict && (!s.enabled || s.cafe_status !== "active")) throw closed();
-    return { kind: "shop", cafeId: s.cafe_id, cafeName: s.cafe_name, session: null, label: "", expiresAt: null, maxFileMb: s.max_file_mb, maxFiles: s.max_files, requirePhone: s.require_phone, notice: s.notice };
+    return { kind: "shop", cafeId: s.cafe_id, cafeName: s.cafe_name, session: null, label: "", expiresAt: null, maxFileMb: s.max_file_mb, maxFiles: s.max_files, requirePhone: s.require_phone, notice: s.notice, shop: shopOf(s), cafeLabel: s.shop_name || s.cafe_name };
   };
   app.get("/u/:code", { config: { rateLimit: { max: 120, timeWindow: "1 minute" } } }, async (req, reply) => {
     if (!isCode(req.params.code)) return reply.code(404).type("text/plain; charset=utf-8").send("not found");
@@ -155,7 +160,27 @@ export async function registerUploads(app) {
   app.get("/api/public/upload/:code", { config: { rateLimit: { max: 120, timeWindow: "1 minute" } } }, async (req, reply) => {
     const s = await byCode(req.params.code);
     reply.header("cache-control", "no-store");
-    return { data: { cafeName: s.cafeName, kind: s.kind, label: s.label, expiresAt: s.expiresAt, serverTime: new Date().toISOString(), maxFileMb: s.maxFileMb, maxFiles: s.maxFiles, allowedExts: ALLOWED_EXTS, notice: s.notice, requirePhone: s.requirePhone } };
+    return { data: { cafeName: s.cafeLabel || s.cafeName, shop: s.shop, kind: s.kind, label: s.label, expiresAt: s.expiresAt, serverTime: new Date().toISOString(), maxFileMb: s.maxFileMb, maxFiles: s.maxFiles, allowedExts: ALLOWED_EXTS, notice: s.notice, requirePhone: s.requirePhone } };
+  });
+  // لوگوی کافی‌نت (فقط اگر مدیر «نمایش مشخصات» را روشن گذاشته باشد). تصویر ساده؛ هرگز اجرا نمی‌شود (nosniff + CSP خالی).
+  app.get("/u/:code/logo", { config: { rateLimit: { max: 240, timeWindow: "1 minute" } } }, async (req, reply) => {
+    const s = await byCode(req.params.code, { strict: false });
+    const r = await pool.query("SELECT shop_logo, shop_logo_mime, shop_logo_hash, show_shop_info FROM upload_settings WHERE cafe_id=$1", [s.cafeId]);
+    const row = r.rows[0];
+    if (!row || !row.show_shop_info || !row.shop_logo) throw notFound("پیدا نشد");
+    const etag = `"${row.shop_logo_hash}"`;
+    reply.header("etag", etag).header("cache-control", "public, max-age=300").header("x-content-type-options", "nosniff").header("content-security-policy", "default-src 'none'").header("cross-origin-resource-policy", "same-origin");
+    if (req.headers["if-none-match"] === etag) return reply.code(304).send();
+    return reply.type(row.shop_logo_mime).send(row.shop_logo);
+  });
+  // فونت وزیرمتن برای صفحهٔ مشتری (OFL؛ فقط دو فایل مجاز، بدون مسیر دلخواه)
+  const FONTS = { "vazirmatn-400.woff2": "Vazirmatn-Regular.woff2", "vazirmatn-700.woff2": "Vazirmatn-Bold.woff2" };
+  const fontCache = new Map();
+  app.get("/u/assets/:file", { config: { rateLimit: { max: 240, timeWindow: "1 minute" } } }, async (req, reply) => {
+    const real = Object.prototype.hasOwnProperty.call(FONTS, req.params.file) ? FONTS[req.params.file] : null;
+    if (!real) throw notFound("پیدا نشد");
+    if (!fontCache.has(real)) fontCache.set(real, await fs.promises.readFile(new URL(`../assets/fonts/${real}`, import.meta.url)));
+    return reply.header("cache-control", "public, max-age=31536000, immutable").header("x-content-type-options", "nosniff").header("cross-origin-resource-policy", "same-origin").type("font/woff2").send(fontCache.get(real));
   });
   // وضعیت ارسال خود مشتری: رمز = <batchId>.<secret>. بدون رمز درست هیچ‌چیز (حتی وجود ارسال) فاش نمی‌شود.
   app.get("/api/public/upload/:code/status/:token", { config: { rateLimit: { max: 90, timeWindow: "1 minute" } } }, async (req, reply) => {
@@ -231,12 +256,17 @@ export async function registerUploads(app) {
       done_retention_days: b.doneRetentionDays === undefined ? undefined : clampInt(b.doneRetentionDays, 7, 1, 365),
       require_phone: b.requirePhone === undefined ? undefined : !!b.requirePhone,
       notice: b.notice === undefined ? undefined : toText(b.notice, { max: 300, key: "اطلاعیه" }).trim(),
+      show_shop_info: b.showShopInfo === undefined ? undefined : !!b.showShopInfo,
+      shop_name: b.shopName === undefined ? undefined : oneLine(b.shopName, 80, "نام کافی‌نت"),
+      shop_address: b.shopAddress === undefined ? undefined : oneLine(b.shopAddress, 200, "نشانی"),
+      shop_phone: b.shopPhone === undefined ? undefined : oneLine(b.shopPhone, 40, "تلفن"),
+      shop_mobile: b.shopMobile === undefined ? undefined : oneLine(b.shopMobile, 40, "موبایل"),
     };
     return tx(pool, async (c) => {
       const cur = await settingsFor(c, req.user.cafeId);
       const m = { ...cur }; for (const [k, v] of Object.entries(next)) if (v !== undefined) m[k] = v;
-      const r = await c.query("UPDATE upload_settings SET enabled=$2,max_file_mb=$3,max_files=$4,retention_days=$5,require_phone=$6,notice=$7,done_retention_days=$8,updated_at=now() WHERE cafe_id=$1 RETURNING *",
-        [req.user.cafeId, m.enabled, m.max_file_mb, m.max_files, m.retention_days, m.require_phone, m.notice, m.done_retention_days]);
+      const r = await c.query("UPDATE upload_settings SET enabled=$2,max_file_mb=$3,max_files=$4,retention_days=$5,require_phone=$6,notice=$7,done_retention_days=$8,show_shop_info=$9,shop_name=$10,shop_address=$11,shop_phone=$12,shop_mobile=$13,updated_at=now() WHERE cafe_id=$1 RETURNING *",
+        [req.user.cafeId, m.enabled, m.max_file_mb, m.max_files, m.retention_days, m.require_phone, m.notice, m.done_retention_days, m.show_shop_info, m.shop_name, m.shop_address, m.shop_phone, m.shop_mobile]);
       await audit(c, { cafeId: req.user.cafeId, userId: req.user.id, action: "upload.settings", entity: "upload_settings", entityId: req.user.cafeId, details: { before: { enabled: cur.enabled, maxFileMb: cur.max_file_mb, maxFiles: cur.max_files, retentionDays: cur.retention_days, doneRetentionDays: cur.done_retention_days, requirePhone: cur.require_phone }, after: { enabled: m.enabled, maxFileMb: m.max_file_mb, maxFiles: m.max_files, retentionDays: m.retention_days, doneRetentionDays: m.done_retention_days, requirePhone: m.require_phone } }, ip: req.ip });
       return { data: shapeSettings(r.rows[0], await usage(c, req.user.cafeId)) };
     });
@@ -245,6 +275,29 @@ export async function registerUploads(app) {
     await settingsFor(c, req.user.cafeId);
     const r = await c.query("UPDATE upload_settings SET code=$2, updated_at=now() WHERE cafe_id=$1 RETURNING *", [req.user.cafeId, await uniqueCode(c)]);
     await audit(c, { cafeId: req.user.cafeId, userId: req.user.id, action: "upload.rotate_code", entity: "upload_settings", entityId: req.user.cafeId, details: {}, ip: req.ip });
+    return { data: shapeSettings(r.rows[0], await usage(c, req.user.cafeId)) };
+  }));
+
+  // لوگوی کافی‌نت برای صفحهٔ مشتری: JSON {data: base64} تا ۱۵۰ کیلوبایت؛ فقط PNG/JPEG/WEBP (با بررسی بایت‌های ابتدایی؛ SVG عمداً رد می‌شود).
+  app.put("/api/uploads/shop-logo", { ...manage, bodyLimit: 300 * 1024 }, async (req) => {
+    const b64 = typeof req.body?.data === "string" ? req.body.data.replace(/^data:[^,]*,/, "") : "";
+    if (!b64 || !/^[A-Za-z0-9+/=\s]+$/.test(b64)) throw new HttpError(400, "bad_logo", "تصویر لوگو معتبر نیست");
+    const buf = Buffer.from(b64, "base64");
+    if (buf.length > 150 * 1024) throw new HttpError(413, "logo_too_large", "لوگو باید کمتر از ۱۵۰ کیلوبایت باشد");
+    const mime = sniffLogo(buf);
+    if (!mime) throw new HttpError(415, "bad_logo_type", "فقط PNG، JPEG یا WEBP پذیرفته می‌شود");
+    const hash = crypto.createHash("sha256").update(buf).digest("hex");
+    return tx(pool, async (c) => {
+      await settingsFor(c, req.user.cafeId);
+      const r = await c.query("UPDATE upload_settings SET shop_logo=$2, shop_logo_mime=$3, shop_logo_hash=$4, updated_at=now() WHERE cafe_id=$1 RETURNING *", [req.user.cafeId, buf, mime, hash]);
+      await audit(c, { cafeId: req.user.cafeId, userId: req.user.id, action: "upload.shop_logo", entity: "upload_settings", entityId: req.user.cafeId, details: { bytes: buf.length, mime }, ip: req.ip });
+      return { data: shapeSettings(r.rows[0], await usage(c, req.user.cafeId)) };
+    });
+  });
+  app.delete("/api/uploads/shop-logo", manage, async (req) => tx(pool, async (c) => {
+    await settingsFor(c, req.user.cafeId);
+    const r = await c.query("UPDATE upload_settings SET shop_logo=NULL, shop_logo_mime=NULL, shop_logo_hash=NULL, updated_at=now() WHERE cafe_id=$1 RETURNING *", [req.user.cafeId]);
+    await audit(c, { cafeId: req.user.cafeId, userId: req.user.id, action: "upload.shop_logo_remove", entity: "upload_settings", entityId: req.user.cafeId, details: {}, ip: req.ip });
     return { data: shapeSettings(r.rows[0], await usage(c, req.user.cafeId)) };
   }));
 

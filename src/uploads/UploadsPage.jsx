@@ -5,7 +5,6 @@ import Icon from "../components/Icon.jsx";
 import { BTN, INP } from "../app/core/constants.js";
 import { toFA } from "../app/core/format.js";
 import { escapeHtml } from "../app/core/format.js";
-import { useShopInfo } from "../app/domain/invoiceData.js";
 import { printFontCss, printWhenReady } from "../app/core/printFont.js";
 import { WORDMARK_SVG } from "../app/components/brandAssets.js";
 import { isApiConnected, getApiConfig } from "../services/api/client.js";
@@ -16,6 +15,8 @@ import { useUploadsSummary } from "./uploadsBadge.js";
 import SessionsPanel from "./SessionsPanel.jsx";
 import FileManager from "./FileManager.jsx";
 import SettingsPanel from "./SettingsPanel.jsx";
+import { useShopProfileSync } from "./shopSync.js";
+import { useShopInfo } from "../app/domain/invoiceData.js";
 import { card, sub, msgOf, Note, Pill } from "./ui.jsx";
 
 
@@ -57,6 +58,8 @@ export default function UploadsPage() {
   const [settings, setSettings] = useState(null), [err, setErr] = useState(""), [sessionFilter, setSessionFilter] = useState(""), [tick, setTick] = useState(0);
   const sum = useUploadsSummary();
   const [shop] = useShopInfo();
+  const mergeSettings = useCallback((s) => setSettings((p) => ({ ...p, ...s })), []);
+  useShopProfileSync(settings, shop, mergeSettings);
   const loadSettings = useCallback(async () => { try { const s = await uploads.settings(); setSettings(s); setErr(""); } catch (e) { setErr(msgOf(e)); } }, []);
   useEffect(() => { if (!connected || guest) return undefined; loadSettings(); const t = setInterval(() => { if (document.visibilityState === "visible") loadSettings(); }, 20000); return () => clearInterval(t); }, [loadSettings, connected, guest]);
   const rotate = async () => {

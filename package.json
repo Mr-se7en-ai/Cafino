@@ -1,6 +1,6 @@
 {
   "name": "work",
-  "version": "1.77.0",
+  "version": "1.78.0",
   "description": "",
   "main": "index.js",
   "scripts": {
@@ -10,7 +10,8 @@
     "verify": "node src/tests/engine/build.mjs && node --test src/tests/*.test.js src/tests/engine/*.test.js",
     "ci": "npm ci && npm run version:check && npm run build && npm test && npm run verify:dist",
     "verify:dist": "node scripts/dist.mjs verify",
-    "version:check": "node scripts/version.mjs check"
+    "version:check": "node scripts/version.mjs check",
+    "site": "node scripts/make-site.mjs"
   },
   "keywords": [],
   "author": "",

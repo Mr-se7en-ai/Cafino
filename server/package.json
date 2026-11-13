@@ -1,6 +1,6 @@
 {
   "name": "cafino-server",
-  "version": "1.77.0",
+  "version": "1.78.0",
   "private": true,
   "type": "module",
   "description": "API و پایگاه‌داده کافینو (Fastify + PostgreSQL)",
