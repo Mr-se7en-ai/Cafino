@@ -27,7 +27,7 @@ before(async () => { url = await startDb(); });
 after(async () => { for (const x of [S, C]) { await x?.ctx.app.close(); await x?.ctx.pool.end(); } await stopDb(); });
 
 test("پیش‌فرض‌ها: owner همه؛ manager همه؛ staff در strict محدود، در compat مثل قبل؛ PAYMENT_VOID_MIN_ROLE صریح حاکم است", () => {
-  assert.equal(PERMISSION_KEYS.length, 21);   // ۱۸ مجوز 1.75 + سه مجوز دریافت فایل (QR): مشاهده، مدیریت، حذف گروهی
+  assert.equal(PERMISSION_KEYS.length, 22);   // ۱۸ مجوز 1.75 + سه مجوز دریافت فایل (QR): مشاهده، مدیریت، حذف گروهی
   for (const k of ["invoice.discount", "invoice.waive", "invoice.manual_total", "invoice.void", "payment.create", "payment.void", "account.opening_balance", "account.adjust", "expense.create", "expense.approve", "report.financial", "report.profit", "users.manage", "shift.operate", "shift.manage", "reconcile.request", "reconcile.approve", "report.bi"]) assert.ok(PERMISSION_KEYS.includes(k), k);
   const strict = { production: true, paymentVoidMinRole: "" }, compat = { production: false, paymentVoidMinRole: "" };
   assert.deepEqual([...defaultPermissions("owner", strict)].sort(), [...PERMISSION_KEYS].sort());
@@ -122,7 +122,7 @@ test("قواعد مدیر: مدیر فقط کارمندان را تنظیم می
   const ok = await mg.call("PUT", "/api/permissions", mut((p) => { p.users[st.id] = { grant: ["payment.void"], deny: [] }; })); assert.equal(ok.status, 200, JSON.stringify(ok.json));
   S.ctx.app.perms.invalidate(S.cafeId);
   assert.equal((await st.call("GET", "/api/permissions")).data.me.permissions.includes("payment.void"), true);
-  const ownerMe = (await owner("GET", "/api/permissions")).data.me; assert.equal(ownerMe.permissions.length, 21);
+  const ownerMe = (await owner("GET", "/api/permissions")).data.me; assert.equal(ownerMe.permissions.length, 22);
   assert.equal((await owner("PUT", "/api/permissions", { roles: { owner: { deny: ["users.manage"] } } })).status, 422);
 });
 

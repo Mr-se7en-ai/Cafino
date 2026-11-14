@@ -121,10 +121,11 @@ test("003: کل API زیر نقش محدود کار می‌کند (ثبت، فا
 });
 
 test("003: مهاجرت روی پایگاه‌دادهٔ موجود (001+002) هیچ دادهٔ مالی را کم/زیاد/عوض نمی‌کند و دوباره‌اجرایی نیست (idempotent)", async () => {
-  const adm = new pg.Client({ connectionString: url }); await adm.connect();
+  const adm = new pg.Client({ connectionString: url }); adm.on("error", () => {}); await adm.connect();
   await adm.query("DROP DATABASE IF EXISTS cafino_mig"); await adm.query("CREATE DATABASE cafino_mig");
   const u = new URL(url); u.pathname = "/cafino_mig";
   const pool = new pg.Pool({ connectionString: u.toString(), max: 2 });
+  pool.on("error", () => {});   // DROP DATABASE … WITH (FORCE) در پایان اتصال‌های بیکار را می‌بندد؛ آن خطا نباید به uncaughtException تبدیل شود (ناپایداریِ تصادفیِ دیده‌شده)
   try {
     await pool.query(mig("001_init.sql")); await pool.query(mig("002_financial_integrity.sql"));
     await pool.query("CREATE TABLE schema_migrations (name text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now())");
@@ -142,7 +143,7 @@ test("003: مهاجرت روی پایگاه‌دادهٔ موجود (001+002) ه
       (await pool.query("SELECT cafe_id,id,total_amount,paid_amount,remaining_amount,status FROM invoices ORDER BY id")).rows,
       (await pool.query("SELECT cafe_id,id,balance FROM accounts ORDER BY id")).rows]);
     const before = await snap();
-    assert.deepEqual(await migrate(pool), ["003_financial_hardening.sql", "004_permissions.sql", "005_performance_indexes.sql", "006_shifts_corrections.sql", "007_customer_uploads.sql", "008_upload_sessions.sql", "009_upload_shop_profile.sql"]);
+    assert.deepEqual(await migrate(pool), ["003_financial_hardening.sql", "004_permissions.sql", "005_performance_indexes.sql", "006_shifts_corrections.sql", "007_customer_uploads.sql", "008_upload_sessions.sql", "009_upload_shop_profile.sql", "010_report_bots.sql"]);
     assert.equal(await snap(), before, "داده باید بایت‌به‌بایت یکسان بماند");
     assert.deepEqual(await migrate(pool), []);
     await rej(pool.query("DELETE FROM ledger_entries"), /financial_no_delete/);

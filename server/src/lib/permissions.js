@@ -25,6 +25,7 @@ export const PERMISSIONS = {
   "upload.view": "مشاهده، دانلود و حذف فایل‌های دریافتی از مشتری (QR)",
   "upload.manage": "تنظیمات QR دریافت فایل (فعال/غیرفعال، سقف‌ها، تعویض کد)",
   "upload.bulk_delete": "حذف گروهی فایل‌های دریافتی از مشتری",
+  "bot.manage": "اتصال و مدیریت ربات بله/تلگرام برای دریافت گزارش",
 };
 export const PERMISSION_KEYS = Object.keys(PERMISSIONS);
 const ALL = new Set(PERMISSION_KEYS);
