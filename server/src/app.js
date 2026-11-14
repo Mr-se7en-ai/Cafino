@@ -20,6 +20,8 @@ import { createReportCache } from "./lib/reportCache.js";
 import { registerNews } from "./routes/news.js";
 import { registerPermissions } from "./routes/permissions.js";
 import { registerUploads } from "./routes/uploads.js";
+import { registerBots } from "./routes/bots.js";
+import { createBotService } from "./lib/bots.js";
 import { createPermissionService } from "./lib/permissions.js";
 
 const PG_ERRORS = {
@@ -134,6 +136,10 @@ export async function buildApp(cfg, { pool, logger = true } = {}) {
   registerNews(app);
   registerPermissions(app);
   await registerUploads(app);
+  const bots = createBotService({ pool, cfg, log: app.log });
+  app.decorate("bots", bots);
+  app.addHook("onClose", async () => bots.stop());
+  await registerBots(app, bots);
   registerAdmin(app);
   return app;
 }

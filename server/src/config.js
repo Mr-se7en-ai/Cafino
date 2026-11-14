@@ -104,6 +104,13 @@ export function loadConfig(source = env) {
     clamavTimeoutMs: Math.max(2000, int(e.CLAMAV_TIMEOUT_MS, 90000)),
     uploadAvMode: ["off", "optional", "required"].includes(String(e.UPLOAD_AV_MODE || "").toLowerCase()) ? String(e.UPLOAD_AV_MODE).toLowerCase() : ((e.CLAMAV_HOST || e.CLAMAV_SOCKET) ? "required" : "off"),
     publicBaseUrl: String(e.PUBLIC_BASE_URL || "").replace(/\/+$/, ""),     // مثلاً https://cafino.example.com — برای نشانی کامل QR؛ خالی = کلاینت از مبدأ خودش می‌سازد
+    // ربات بله/تلگرام (گزارش): BOTS_ENABLED=false کل زمان‌بند را خاموش می‌کند. نشانی API قابل‌تغییر است (مثلاً پراکسی معکوس برای تلگرام در شبکه‌ای که فیلتر است).
+    botsEnabled: bool(e.BOTS_ENABLED, true),
+    botPollIntervalMs: Math.max(2000, int(e.BOT_POLL_INTERVAL_MS, 6000)),
+    telegramApiBase: String(e.TELEGRAM_API_BASE || "https://api.telegram.org").replace(/\/+$/, ""),
+    baleApiBase: String(e.BALE_API_BASE || "https://tapi.bale.ai").replace(/\/+$/, ""),
+    botTokenKey: e.BOT_TOKEN_KEY || "",                              // کلید رمزنگاری توکن ربات‌ها؛ خالی = مشتق از JWT_SECRET (با تغییر JWT_SECRET باید ربات‌ها دوباره متصل شوند)
+    botTz: e.BOT_TZ || "Asia/Tehran",                                // منطقهٔ زمانی «گزارش روزانه» و «امروز/دیروز»
     referenceChecks: /^(off|false|0)$/i.test(String(e.REFERENCE_CHECKS || "")) ? "off" : "strict",   // strict: ارجاع به مشتری/فاکتور ناموجود رد می‌شود (یتیم‌ساز نیست)
   };
   const problems = [];

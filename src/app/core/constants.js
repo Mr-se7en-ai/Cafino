@@ -349,6 +349,7 @@ export const TABS=[
   {key:"calendar",icon:"CalendarDays",label:"تقویم رویدادها",nav:"main"},
   {key:"inbox",icon:"Megaphone",label:"اطلاعیه و تیکت",nav:"main"},
   {key:"uploads",icon:"QrCode",label:"دریافت فایل از مشتری",nav:"main"},
+  {key:"bots",icon:"Send",label:"ربات بله و تلگرام",nav:"main"},
   {key:"notes",icon:"Bell",label:"یادداشت و یادآوری",nav:"main"},
   {key:"health",icon:"Activity",label:"سلامت کسب‌وکار",nav:"main"},
   {key:"inventory",icon:"Package",label:"انبار",nav:"main"},
@@ -380,7 +381,7 @@ export const NAV_TREE=[
   {key:"mgmt",orangeOnly:true},
   {group:"shop",label:"فروشگاه",icon:"Store",keys:["shop-all","shop-services","shop-inperson","shop-online","pos","topup","printscan"]},
   {group:"accounting",label:"حسابداری",icon:"Wallet",keys:["orders","invoice","transactions","ledger","obligations","audit","fincenter"]},
-  {group:"manage",label:"مدیریت",icon:"Briefcase",keys:["customers","calendar","inbox","uploads","notes","health","inventory","report"]},
+  {group:"manage",label:"مدیریت",icon:"Briefcase",keys:["customers","calendar","inbox","uploads","bots","notes","health","inventory","report"]},
   {group:"tools",label:"ابزارها",icon:"Printer",keys:["tariff","links","dateconv"]},
 ];
 

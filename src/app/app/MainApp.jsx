@@ -22,6 +22,7 @@ import { HealthPage } from "../../health/HealthPage.jsx";
 import { InboxPage, UrgentAnnouncementBar, InboxBadge } from "../../inbox/InboxPage.jsx";
 import FinanceCenter from "../../finance/FinanceCenter.jsx";
 import UploadsPage from "../../uploads/UploadsPage.jsx";
+import BotsPage from "../../bots/BotsPage.jsx";
 import { startMobileUi } from "../../mobile/mobileUi.js";
 import { startInboxPolling } from "../../inbox/inbox.js";
 import { startUploadsPolling } from "../../uploads/uploadsBadge.js";
@@ -807,6 +808,7 @@ export function MainApp({onLogout,theme,setTheme,customFont,setCustomFont,userEm
         {activeTab==="inbox"&&<InboxPage/>}
         {activeTab==="fincenter"&&<FinanceCenter/>}
         {activeTab==="uploads"&&<UploadsPage/>}
+        {activeTab==="bots"&&<BotsPage/>}
         {activeTab==="about"&&<AboutPage/>}
         {activeTab==="audit"&&<AuditPanel/>}
         {activeTab==="calendar"&&<EventCalendar/>}
