@@ -343,7 +343,7 @@ test("لاگ حسابرسی سرور: زنجیرهٔ هش سالم؛ دستکا�
 test("مهاجرت: دوباره‌اجرا بی‌خطر و هیچ مهاجرتی تکرار نمی‌شود", async () => {
   const { migrate } = await import("../src/db.js");
   assert.deepEqual(await migrate(ctx.pool), []);
-  assert.equal((await ctx.pool.query("SELECT count(*)::int AS n FROM schema_migrations")).rows[0].n, 10);
+  assert.equal((await ctx.pool.query("SELECT count(*)::int AS n FROM schema_migrations")).rows[0].n, 11);
 });
 
 test("قرارداد با کلاینت واقعی: بدنه‌هایی که mappers برنامه می‌سازد مستقیم پذیرفته می‌شوند و برمی‌گردند", async () => {
