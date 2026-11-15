@@ -11,6 +11,7 @@ import { tx } from "../db.js";
 import { audit } from "../lib/audit.js";
 import { HttpError, forbidden, invalid, unauthorized } from "../lib/errors.js";
 import { generateCode } from "../lib/uploads.js";
+import { registerMiniappStaff } from "./miniappStaff.js";
 import { MiniappAuthError, codeFromPayload, phoneLikePatterns, samePhone, sanitizeTariff, signSession, tariffHash, verifyInitData, verifySession } from "../lib/miniapp.js";
 
 const SHELL_CSP = ["default-src 'none'", "script-src 'self' https://telegram.org", "style-src 'self'", "style-src-attr 'unsafe-inline'", "img-src 'self' data:", "font-src 'self'", "connect-src 'self'",
@@ -28,7 +29,7 @@ const fullName = (r) => [r?.first_name, r?.last_name].filter(Boolean).join(" ").
 
 export async function registerMiniapp(app, bot) {
   const { pool, cfg } = app;
-  const assetCache = new Map();
+  const assetCache = new Map(), h = {};        // h: ابزارهای مشترک برای بخش کافی‌نت (miniappStaff.js)
 
   // ── پوسته و فایل‌های ایستا ─────────────────────────────────────────────────────────────────────────────
   const shell = async (req, reply) => reply.header("content-security-policy", SHELL_CSP).header("cache-control", "no-store").header("x-content-type-options", "nosniff").header("referrer-policy", "no-referrer").header("x-robots-tag", "noindex, nofollow").type("text/html; charset=utf-8").send(SHELL_HTML);
@@ -92,7 +93,8 @@ export async function registerMiniapp(app, bot) {
     if (row && String(u.last_cafe_id) !== String(row.cafe_id)) await pool.query("UPDATE telegram_users SET last_cafe_id=$2 WHERE telegram_id=$1", [u.telegram_id, row.cafe_id]);
     const token = await signSession(cfg, { telegramId: u.telegram_id, cafeId: row?.cafe_id || null });
     reply.header("cache-control", "no-store");
-    return { data: { token, expiresIn: cfg.miniappSessionTtlSec, problem, cafe: cafeView(row), user: { firstName: u.first_name }, phoneVerified: !!u.phone_verified_at, botUsername: bot.info()?.username || "" } };
+    const staff = await h.staffOf(u.telegram_id);
+    return { data: { token, expiresIn: cfg.miniappSessionTtlSec, problem, staff, cafe: cafeView(row), user: { firstName: u.first_name }, phoneVerified: !!u.phone_verified_at, botUsername: bot.info()?.username || "" } };
   });
 
   // ── نشست مینی‌اپ ────────────────────────────────────────────────────────────────────────────────────────────────
@@ -219,4 +221,6 @@ export async function registerMiniapp(app, bot) {
     await pool.query("INSERT INTO shop_public_tariff (cafe_id, data, hash) VALUES ($1,$2,$3) ON CONFLICT (cafe_id) DO UPDATE SET data=EXCLUDED.data, hash=EXCLUDED.hash, updated_at=now()", [req.user.cafeId, JSON.stringify(r.groups), hash]);
     return { data: { hash, changed: true, groups: r.groups.length } };
   });
+  Object.assign(h, { session, mini, ok, needCafe, linkOf, phoneOf, CAFE_SQL, cafeView, usable });
+  registerMiniappStaff(app, bot, h);
 }

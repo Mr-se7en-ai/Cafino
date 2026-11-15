@@ -36,6 +36,16 @@ export function createMiniappBot({ pool, cfg, log = {}, fetchImpl = globalThis.f
     return r.rows[0] || null;
   }
 
+  const staffLink = async (tgId) => (await pool.query("SELECT 1 FROM telegram_staff_links WHERE telegram_id=$1", [tgId])).rowCount > 0;
+  /** اعلان به کاربران کافی‌نتِ متصل (فقط کسانی که اعلان را روشن دارند و ربات را Start کرده‌اند). بی‌صدا شکست می‌خورد. */
+  async function notifyStaff(cafeId, text) {
+    if (!enabled()) return 0;
+    const r = await pool.query("SELECT t.chat_id FROM telegram_staff_links l JOIN telegram_users t ON t.telegram_id=l.telegram_id JOIN users u ON u.id=l.user_id WHERE l.cafe_id=$1 AND l.notify AND u.is_active AND t.chat_id IS NOT NULL LIMIT 20", [cafeId]);
+    let n = 0;
+    for (const x of r.rows) { try { await say(x.chat_id, clean(text, 900).replace(/ ?\n ?/g, "\n"), { inline_keyboard: [[{ text: "باز کردن بخش کافی‌نت", web_app: { url: `${cfg.miniappUrl}/?m=staff` } }]] }); n++; } catch (e) { warn({ err: e?.message }, "miniapp notify failed"); } }
+    return n;
+  }
+
   async function upsertUser(from, chatId) {
     const r = await pool.query(
       `INSERT INTO telegram_users (telegram_id, first_name, last_name, username, language, chat_id) VALUES ($1,$2,$3,$4,$5,$6)
@@ -50,6 +60,8 @@ export function createMiniappBot({ pool, cfg, log = {}, fetchImpl = globalThis.f
       user.last_cafe_id = cafe.cafe_id;
       await api("setChatMenuButton", { chat_id: chatId, menu_button: { type: "web_app", text: BTN_ENTER, web_app: { url: appUrl(cafe.code) } } }).catch((e) => warn({ err: e.message }, "miniapp per-chat menu failed"));
       await say(chatId, `به کافی‌نت «${clean(cafe.name)}» خوش آمدید.\nبا دکمهٔ زیر وارد کافینو شوید؛ خدمات، قیمت‌ها و وضعیت سفارش‌هایتان را ببینید.`, enterMarkup(cafe.code));
+    } else if (await staffLink(user.telegram_id)) {
+      return void await say(chatId, "به بخش کافی‌نت کافینو خوش آمدید. با دکمهٔ زیر وارد شوید؛ سفارش‌ها، فایل‌ها و درخواست‌های مشتری را ببینید.", { inline_keyboard: [[{ text: "ورود کافی‌نت", web_app: { url: `${cfg.miniappUrl}/?m=staff` } }]] });
     } else {
       const last = user.last_cafe_id ? (await pool.query("SELECT s.cafe_id, s.code, COALESCE(NULLIF(s.shop_name,''), c.name) AS name FROM upload_settings s JOIN cafes c ON c.id=s.cafe_id WHERE s.cafe_id=$1 AND s.miniapp_enabled AND c.status='active'", [user.last_cafe_id])).rows[0] : null;
       if (last) return welcome(chatId, user, last);
@@ -111,7 +123,7 @@ export function createMiniappBot({ pool, cfg, log = {}, fetchImpl = globalThis.f
 
   let timer = null, busy = false;
   return {
-    enabled, init, tick, appUrl,
+    enabled, init, tick, appUrl, notifyStaff,
     info: () => info,
     startLink: (code) => (info?.username ? `https://t.me/${info.username}?start=${startPayloadOf(code)}` : ""),
     start() {

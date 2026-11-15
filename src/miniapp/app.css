@@ -26,7 +26,7 @@ h2,h3,p{margin:0}h2{font-size:18px}h3{font-size:15px}
 .list{list-style:none;margin:8px 0 0;padding:0}.list li{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid var(--line)}.list li:first-child{border-top:0}
 .sec{margin:4px 2px 8px}
 .empty{text-align:center;padding:28px 12px;color:var(--hint)}.empty svg{width:36px;height:36px;margin-bottom:6px}
-.seg{display:grid;grid-template-columns:1fr 1fr;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:3px}
+.seg{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:3px}
 .seg button{min-height:40px;border:0;border-radius:9px;background:none;cursor:pointer}.seg .on{background:var(--accent);color:var(--on);font-weight:700}
 .steps{list-style:none;display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin:12px 0 0;padding:0}
 .steps li{text-align:center;font-size:11px;color:var(--hint);position:relative}
@@ -36,3 +36,13 @@ h2,h3,p{margin:0}h2{font-size:18px}h3{font-size:15px}
 .nav{position:fixed;inset-inline:0;bottom:0;display:grid;grid-template-columns:repeat(5,1fr);background:var(--card);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
 .nav button{min-height:56px;border:0;background:none;color:var(--hint);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:11px;cursor:pointer}.nav .on{color:var(--accent);font-weight:700}
 button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.top{display:flex;align-items:center;justify-content:space-between;gap:8px}.top .swap{border:1px solid var(--line);background:none;border-radius:999px;padding:2px 12px;font-size:12px;color:var(--hint);min-height:32px;cursor:pointer}
+.gate{display:flex;flex-direction:column;gap:4px;text-align:right;cursor:pointer;width:100%;min-height:72px}.gate:disabled{opacity:.55;cursor:default}.gate b{font-size:16px}
+.tap{cursor:pointer;text-align:center;font:inherit}.ltr{text-align:center;letter-spacing:.2em;font-size:20px;font-weight:700}
+.how{margin:0;padding-inline-start:20px;color:var(--hint);font-size:13px}.area{padding:10px 14px;min-height:84px;resize:vertical}
+.rowbtn{display:block;width:100%;text-align:right;background:none;border:0;padding:0;cursor:pointer;font:inherit}
+.badge{display:inline-block;border-radius:999px;padding:1px 10px;font-size:12px;background:var(--sec);margin:4px 0 0 6px}.badge.wait{background:transparent;border:1px dashed var(--warn);color:var(--warn)}
+.badge.s-new,.badge.u-0,.badge.q-new{color:var(--warn)}.badge.s-completed,.badge.s-delivered,.badge.u-3,.badge.q-done,.badge.q-accepted{color:var(--ok)}.badge.q-rejected{color:var(--danger)}
+.pick{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}.pick button{min-height:40px;padding:0 12px;border-radius:10px;border:1px solid var(--line);background:var(--card);cursor:pointer}.pick .on{background:var(--accent);color:var(--on);border-color:var(--accent);font-weight:700}
+.mini{min-height:32px;border:1px solid var(--accent);color:var(--accent);background:none;border-radius:8px;padding:0 10px;font-size:12px;cursor:pointer}.plain{font-weight:400}
+.list li{align-items:center}

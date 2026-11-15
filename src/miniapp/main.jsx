@@ -4,21 +4,10 @@ import { createRoot } from "react-dom/client";
 import { getTg } from "./tg.js";
 import { createApi } from "./api.js";
 import { faDigits, faNum, initial, jalali, telHref, tomanText } from "./format.js";
+import { Empty, ErrorBox, Icon, Skeleton, useAsync } from "./ui.jsx";
+import { REQ_LABEL, STAFF_TABS, StaffApp, StaffGate } from "./staff.jsx";
 
 const TABS = [["home", "خانه", "M3 11l9-8 9 8v9a1 1 0 01-1 1h-5v-6H9v6H4a1 1 0 01-1-1z"], ["services", "خدمات", "M4 6h16M4 12h16M4 18h10"], ["orders", "سفارش‌ها", "M6 3h12l2 4v14H4V7zM4 7h16M9 12h6"], ["support", "پشتیبانی", "M12 21s-7-6.2-7-11a7 7 0 0114 0c0 4.8-7 11-7 11zM12 12a2 2 0 100-4 2 2 0 000 4z"], ["account", "حساب", "M12 12a4 4 0 100-8 4 4 0 000 8zM4 21c0-4 4-6 8-6s8 2 8 6"]];
-const Icon = ({ d }) => <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={d} /></svg>;
-
-function useAsync(fn, deps) {
-  const [s, set] = useState({ loading: true, data: null, error: null });
-  const run = useCallback(() => { set((x) => ({ ...x, loading: true, error: null })); fn().then((data) => set({ loading: false, data, error: null }), (error) => set({ loading: false, data: null, error })); }, deps);
-  useEffect(() => { run(); }, [run]);
-  return [s, run];
-}
-
-const Skeleton = ({ rows = 3 }) => <div className="stack" aria-busy="true">{Array.from({ length: rows }, (_, i) => <div key={i} className="card sk" />)}</div>;
-const ErrorBox = ({ error, onRetry }) => <div className="card center" role="alert"><p className="strong">{error && error.message || "خطا"}</p><button className="btn" onClick={onRetry}>تلاش دوباره</button></div>;
-const Empty = ({ icon = "M5 4h14v16H5z", title, text }) => <div className="empty"><Icon d={icon} /><p className="strong">{title}</p>{text && <p className="hint">{text}</p>}</div>;
-
 function Stepper({ steps, stage }) {
   return <ol className="steps" aria-label="مراحل">{steps.map((s, i) => <li key={s} className={i < stage ? "done" : i === stage ? "now" : ""} aria-current={i === stage ? "step" : undefined}><i /><span>{s}</span></li>)}</ol>;
 }
@@ -30,6 +19,18 @@ const OrderCard = ({ o }) => (
     <Stepper steps={o.steps} stage={o.stage} />
   </article>
 );
+
+
+function RequestForm({ api, preset, onDone, onCancel }) {
+  const [service, setService] = useState(preset || ""), [note, setNote] = useState(""), [busy, setBusy] = useState(false), [err, setErr] = useState("");
+  const submit = (e) => { e.preventDefault(); setBusy(true); setErr(""); api.call("POST", "requests", { service, note }).then(() => onDone(), (x) => setErr(x.code === "phone_required" ? "ابتدا در «خانه» شمارهٔ موبایل خود را تأیید کنید." : x.message)).finally(() => setBusy(false)); };
+  return <form className="card stack" onSubmit={submit}><h3>درخواست سفارش</h3>
+    <input className="input" placeholder="چه کاری می‌خواهید؟ (مثلاً چاپ بنر ۲×۱)" aria-label="خدمت" maxLength={120} value={service} onChange={(e) => setService(e.target.value)} required />
+    <textarea className="input area" placeholder="توضیحات (تعداد، رنگ، زمان تحویل…)" aria-label="توضیحات" maxLength={500} rows={3} value={note} onChange={(e) => setNote(e.target.value)} />
+    <div className="grid2"><button className="btn primary" disabled={busy || !service.trim()}>{busy ? "در حال ارسال…" : "ارسال درخواست"}</button><button type="button" className="btn" onClick={onCancel}>انصراف</button></div>
+    {err && <p className="warn" role="alert">{err}</p>}<p className="hint">کافی‌نت درخواست را می‌بیند و نتیجه را همین‌جا اعلام می‌کند. فایل‌ها را از «ارسال فایل برای چاپ» بفرستید.</p></form>;
+}
+const RequestCard = ({ r }) => <article className="card order"><div className="row"><h3>{r.service}</h3><span className={`badge q-${r.status}`}>{REQ_LABEL[r.status]}</span></div><p className="hint">{jalali(r.createdAt)}</p>{r.note && <p>{r.note}</p>}{r.reply && <p className="strong">پاسخ کافی‌نت: <span className="plain">{r.reply}</span></p>}</article>;
 
 function PhoneCard({ tg, api, bot, cafeCode, onDone }) {
   const [busy, setBusy] = useState(false), [msg, setMsg] = useState("");
@@ -62,7 +63,7 @@ function Home({ api, tg, go, bump }) {
   </div>;
 }
 
-function Services({ api }) {
+function Services({ api, onRequest }) {
   const [s, run] = useAsync(() => api.services(), []);
   const [q, setQ] = useState("");
   const groups = useMemo(() => { const t = q.trim(); const g = (s.data && s.data.groups) || []; if (!t) return g; return g.map((x) => ({ ...x, items: x.items.filter((i) => i.name.includes(t) || x.cat.includes(t)) })).filter((x) => x.items.length); }, [s.data, q]);
@@ -71,17 +72,21 @@ function Services({ api }) {
   if (!s.data.groups.length) return <Empty title="هنوز تعرفه‌ای ثبت نشده" text="کافی‌نت هنوز قیمت‌ها را منتشر نکرده است." />;
   return <div className="stack"><input className="input" type="search" placeholder="جست‌وجوی خدمت…" aria-label="جست‌وجوی خدمت" value={q} onChange={(e) => setQ(e.target.value)} />
     {!groups.length && <Empty title="موردی پیدا نشد" />}
-    {groups.map((g) => <section key={g.cat} className="card"><h3>{g.cat}</h3><ul className="list">{g.items.map((i) => <li key={i.name}><span>{i.name}</span><b>{tomanText(i.price)}</b></li>)}</ul></section>)}
+    {groups.map((g) => <section key={g.cat} className="card"><h3>{g.cat}</h3><ul className="list">{g.items.map((i) => <li key={i.name}><span>{i.name}</span><b>{tomanText(i.price)}</b><button className="mini" onClick={() => onRequest(i.name)} aria-label={`درخواست ${i.name}`}>درخواست</button></li>)}</ul></section>)}
     <p className="hint center">قیمت‌ها تقریبی است؛ مبلغ نهایی را کافی‌نت اعلام می‌کند.</p></div>;
 }
 
-function Orders({ api, bump }) {
+function Orders({ api, bump, newRequest, setNewRequest }) {
   const [s, run] = useAsync(() => api.orders(), [bump]);
+  const [rq, runRq] = useAsync(() => api.call("GET", "requests"), [bump]);
   const [filter, setFilter] = useState("open");
   if (s.loading && !s.data) return <Skeleton rows={3} />;
   if (s.error) return <ErrorBox error={s.error} onRetry={run} />;
   const items = s.data.items.filter((x) => (filter === "open" ? !x.done : x.done));
+  const reqs = (rq.data && rq.data.items) || [];
   return <div className="stack">
+    {newRequest === null ? <button className="btn primary block" onClick={() => setNewRequest("")}>+ درخواست سفارش جدید</button> : <RequestForm api={api} preset={newRequest} onDone={() => { setNewRequest(null); runRq(); }} onCancel={() => setNewRequest(null)} />}
+    {reqs.length > 0 && <section><h3 className="sec">درخواست‌های شما</h3><div className="stack">{reqs.slice(0, 6).map((r) => <RequestCard key={r.id} r={r} />)}</div></section>}
     <div className="seg" role="tablist">{[["open", "در جریان"], ["done", "تمام‌شده"]].map(([k, t]) => <button key={k} role="tab" aria-selected={filter === k} className={filter === k ? "on" : ""} onClick={() => setFilter(k)}>{t}</button>)}</div>
     {!s.data.phoneVerified && !s.data.linked && <p className="hint center">برای دیدن همهٔ سفارش‌ها شمارهٔ خود را در «خانه» تأیید کنید.</p>}
     {items.length ? items.map((o, i) => <OrderCard key={`${o.kind}${o.code || ""}${i}`} o={o} />) : <Empty title={filter === "open" ? "سفارش در جریان ندارید" : "سفارش تمام‌شده‌ای نیست"} />}</div>;
@@ -117,24 +122,51 @@ function Account({ api, bump, refresh }) {
 
 function Problem({ kind }) {
   const t = { not_found: ["لینک کافی‌نت معتبر نیست", "لینک یا QR را دوباره از کافی‌نت بگیرید."], disabled: ["مینی‌اپ این کافی‌نت فعلاً بسته است", "با کافی‌نت تماس بگیرید."], no_cafe: ["کافی‌نت مشخص نیست", "لینک یا QR مخصوص کافی‌نت خود را باز کنید؛ با آن مینی‌اپ به همان کافی‌نت وصل می‌شود."] }[kind] || ["خطا", ""];
-  return <div className="boot"><Empty title={t[0]} text={t[1]} /></div>;
+  return <Empty title={t[0]} text={t[1]} />;
+}
+
+const MODE_KEY = "cafino_mode";
+const readMode = () => { try { const v = localStorage.getItem(MODE_KEY); return v === "staff" || v === "customer" ? v : ""; } catch { return ""; } };
+const saveMode = (m) => { try { m ? localStorage.setItem(MODE_KEY, m) : localStorage.removeItem(MODE_KEY); } catch { /* بدون ذخیره هم کار می‌کند */ } };
+
+/** صفحهٔ ورود دو بخشی: حساب مشتری | ورود کافی‌نت */
+function Gate({ api, info, onPick, onLinked, tg }) {
+  const [showLink, setShowLink] = useState(false);
+  const canCustomer = !info.problem;
+  return <div className="boot stack"><section className="card center"><h2>کافینو</h2><p className="hint">وارد کدام بخش می‌شوید؟</p></section>
+    <button className="card gate" data-testid="gate-customer" disabled={!canCustomer} onClick={() => onPick("customer")}><b>حساب مشتری</b><span className="hint">{canCustomer ? `خدمات، سفارش‌ها و حساب شما در «${info.cafe.name}»` : "برای ورود مشتری، لینک یا QR کافی‌نت را باز کنید"}</span></button>
+    {info.staff ? <button className="card gate" data-testid="gate-staff" onClick={() => onPick("staff")}><b>ورود به حساب کافی‌نت</b><span className="hint">{info.staff.name} — {info.staff.cafeName}</span></button>
+      : !showLink ? <button className="card gate" data-testid="gate-staff" onClick={() => setShowLink(true)}><b>ورود به حساب کافی‌نت</b><span className="hint">برای مالک و کارمندان؛ با کد اتصال از برنامه</span></button>
+      : <StaffGate api={api} info={info} onLinked={onLinked} />}
+    {!tg.hasSdk && <p className="hint center">برای بهترین تجربه از داخل تلگرام باز کنید.</p>}</div>;
 }
 
 function App({ tg }) {
   const api = useMemo(() => createApi({ initData: tg.initData, cafe: tg.cafe }), [tg]);
-  const [boot, setBoot] = useState({ state: "loading" }), [tab, setTab] = useState("home"), [bump, setBump] = useState(0);
+  const [boot, setBoot] = useState({ state: "loading" }), [mode, setMode] = useState(""), [tab, setTab] = useState("home"), [bump, setBump] = useState(0), [newRequest, setNewRequest] = useState(null);
   const start = useCallback(() => {
     if (!tg.initData) return setBoot({ state: "error", error: new Error("این صفحه باید از داخل تلگرام باز شود.") });
-    setBoot({ state: "loading" }); api.login().then((d) => setBoot({ state: d.problem ? "problem" : "ready", info: d }), (error) => setBoot({ state: "error", error }));
+    setBoot({ state: "loading" });
+    api.login().then((d) => {
+      setBoot({ state: "ready", info: d });
+      const want = tg.mode || readMode();          // لینک ربات کافی‌نت (?m=staff) یا آخرین انتخاب
+      setMode(want === "staff" && d.staff ? "staff" : want === "customer" && !d.problem ? "customer" : (tg.cafe && !d.staff) ? "customer" : "");
+    }, (error) => setBoot({ state: "error", error }));
   }, [api, tg]);
   useEffect(() => { tg.ready(); start(); }, [start, tg]);
   useEffect(() => { document.documentElement.dataset.theme = tg.scheme === "dark" ? "dark" : "light"; }, [tg]);
   if (boot.state === "loading") return <div className="boot"><Skeleton rows={3} /></div>;
   if (boot.state === "error") return <div className="boot"><ErrorBox error={boot.error} onRetry={start} /></div>;
-  if (boot.state === "problem") return <Problem kind={boot.info.problem} />;
-  const go = (t) => { tg.haptic(); setTab(t); window.scrollTo(0, 0); }, refresh = () => setBump((n) => n + 1);
-  const View = { home: <Home api={api} tg={tg} go={go} bump={bump} />, services: <Services api={api} />, orders: <Orders api={api} bump={bump} />, support: <Support api={api} tg={tg} />, account: <Account api={api} bump={bump} refresh={refresh} /> }[tab];
-  return <><header className="top"><b>{boot.info.cafe.name}</b></header><main className="page">{View}</main>
+  const info = boot.info, pick = (m) => { saveMode(m); setMode(m); setTab("home"); window.scrollTo(0, 0); }, refresh = () => setBump((n) => n + 1);
+  if (!mode) return <Gate api={api} info={info} tg={tg} onPick={pick} onLinked={() => { saveMode("staff"); start(); }} />;
+  const go = (t) => { tg.haptic(); setTab(t); window.scrollTo(0, 0); };
+  const top = <header className="top"><b>{mode === "staff" && info.staff ? info.staff.cafeName : info.cafe ? info.cafe.name : "کافینو"}</b><button className="swap" onClick={() => pick("")} aria-label="تغییر بخش">تغییر بخش</button></header>;
+  if (mode === "staff") return <>{top}<main className="page"><StaffApp api={api} tg={tg} tab={tab} go={go} bump={bump} refresh={refresh} onUnlinked={() => { saveMode(""); start(); }} /></main>
+    <nav className="nav" aria-label="بخش‌های کافی‌نت">{STAFF_TABS.map(([k, t, d]) => <button key={k} className={tab === k ? "on" : ""} aria-current={tab === k ? "page" : undefined} onClick={() => go(k)}><Icon d={d} /><span>{t}</span></button>)}</nav></>;
+  if (info.problem) return <>{top}<main className="page"><Problem kind={info.problem} /><button className="btn block" onClick={() => pick("")}>ورود به حساب کافی‌نت</button></main></>;
+  const ask = (name) => { setNewRequest(name); go("orders"); };
+  const View = { home: <Home api={api} tg={tg} go={go} bump={bump} />, services: <Services api={api} onRequest={ask} />, orders: <Orders api={api} bump={bump} newRequest={newRequest} setNewRequest={setNewRequest} />, support: <Support api={api} tg={tg} />, account: <Account api={api} bump={bump} refresh={refresh} /> }[tab];
+  return <>{top}<main className="page">{View}</main>
     <nav className="nav" aria-label="بخش‌ها">{TABS.map(([k, t, d]) => <button key={k} className={tab === k ? "on" : ""} aria-current={tab === k ? "page" : undefined} onClick={() => go(k)}><Icon d={d} /><span>{t}</span></button>)}</nav></>;
 }
 

@@ -8,12 +8,12 @@ export function getTg(win = typeof window !== "undefined" ? window : {}) {
   const hp = readHashParams(win.location && win.location.hash);
   const initData = (sdk && sdk.initData) || hp.get("tgWebAppData") || "";
   const q = win.location && win.location.search ? new URLSearchParams(win.location.search) : new URLSearchParams();
-  const cafe = q.get("c") || "";
+  const cafe = q.get("c") || "", mode = q.get("m") === "staff" ? "staff" : "";
   let scheme = (sdk && sdk.colorScheme) || "";
   if (!scheme) { try { scheme = win.matchMedia && win.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"; } catch { scheme = "light"; } }
   const atLeast = (v) => { try { return !!(sdk && sdk.isVersionAtLeast && sdk.isVersionAtLeast(v)); } catch { return false; } };
   return {
-    sdk, initData, cafe, scheme, hasSdk: !!sdk,
+    sdk, initData, cafe, mode, scheme, hasSdk: !!sdk,
     ready() { try { sdk && sdk.ready(); sdk && sdk.expand && sdk.expand(); } catch {} },
     canRequestContact: () => !!(sdk && typeof sdk.requestContact === "function" && atLeast("8.0")),
     requestContact: (cb) => { try { sdk.requestContact((ok) => cb && cb(!!ok)); } catch { cb && cb(false); } },

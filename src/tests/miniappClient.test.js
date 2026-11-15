@@ -40,6 +40,15 @@ test("api: خطای سرور پیام فارسی سرور را برمی‌گرد
   await assert.rejects(() => bad.me(), (e) => e.status === 401 && e.code === "bad_signature");
 });
 
+test("api: درخواست بدون بدنه (DELETE/GET) هدر content-type نمی‌فرستد (فستیفای ۴۰۰ می‌دهد) ولی POST می‌فرستد", async () => {
+  const seen = [];
+  const fetchImpl = async (url, init) => { seen.push([init.method, url.split("/api/miniapp/")[1], init.headers["content-type"] || "", init.body || ""]); return url.endsWith("/auth") ? res(200, { data: { token: "T" } }) : res(200, { data: {} }); };
+  const api = createApi({ initData: "d", fetchImpl });
+  await api.unlink(); await api.forgetMe(); await api.call("POST", "requests", { service: "x" });
+  assert.deepEqual(seen.slice(1), [["DELETE", "link", "", ""], ["DELETE", "me", "", ""], ["POST", "requests", "application/json", '{"service":"x"}']]);
+  assert.equal(seen[0][2], "application/json");
+});
+
 test("format: ارقام فارسی، تومان از ریال، تاریخ امروز/دیروز، تلفن", () => {
   assert.equal(faDigits("کد 12345"), "کد ۱۲۳۴۵"); assert.equal(faNum(1250000), "۱٬۲۵۰٬۰۰۰");
   assert.equal(toToman(1250000), 125000); assert.equal(tomanText(80000), "۸٬۰۰۰ تومان"); assert.equal(tomanText(undefined), "۰ تومان");
@@ -68,4 +77,51 @@ test("scheduleTariffSync: با تأخیر، حذف تکراری، و بی‌اث
   scheduleTariffSync([{ cat: "ز", items: [{ name: "y", price: 1 }] }], { ...on, api: failing }); await new Promise((r) => setTimeout(r, 40));
   scheduleTariffSync([{ cat: "ز", items: [{ name: "y", price: 1 }] }], on); await new Promise((r) => setTimeout(r, 40)); assert.equal(puts.length, 3, "پس از خطا دوباره تلاش می‌شود");
   assert.deepEqual(await syncTariffNow(data, api), {});
+});
+
+// ── 1.81: سمت برنامهٔ کافی‌نت ──
+import { planOrderActions, buildOrderFromRequest, applyPendingOrderActions, secondsLeft, ORDER_STATUS_KEYS } from "../uploads/miniappOrders.js";
+import { miniapp } from "../uploads/miniappApi.js";
+
+const ID = (n) => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
+test("planOrderActions: یافتن با id یا serverId، هم‌وضعیت=applied بی‌تغییر، ناموجود/نامعتبر", () => {
+  const orders = [{ id: "o1", status: "new", title: "الف" }, { id: 7, serverId: "srv-7", status: "inprogress", title: "ب" }, { id: "o3", status: "completed", title: "ج" }];
+  const p = planOrderActions([
+    { id: ID(1), orderId: "o1", status: "completed", by: "علی" },
+    { id: ID(2), orderId: "srv-7", status: "delivered" },
+    { id: ID(3), orderId: "o3", status: "completed" },           // همان وضعیت: تأیید می‌شود ولی تغییری نمی‌خواهد
+    { id: ID(4), orderId: "nope", status: "new" },
+    { id: ID(5), orderId: "o1", status: "bogus" },               // وضعیت نامعتبر: نادیده
+    { id: 9, orderId: "o1", status: "new" },                      // id نامعتبر: نادیده
+  ], orders);
+  assert.deepEqual(p.applied, [ID(1), ID(2), ID(3)]); assert.deepEqual(p.notFound, [ID(4)]);
+  assert.deepEqual(p.updates.map((u) => [String(u.order.id), u.status, u.by]), [["o1", "completed", "علی"], ["7", "delivered", ""]]);
+  assert.deepEqual(planOrderActions(null, null), { updates: [], applied: [], notFound: [] });
+  assert.ok(ORDER_STATUS_KEYS.includes("waiting_docs"));
+});
+
+test("buildOrderFromRequest: فقط برای مشتری شناخته‌شده؛ قالب سفارش", () => {
+  const customers = [{ id: 12, firstName: "سارا", lastName: "رضایی" }];
+  const o = buildOrderFromRequest({ customerId: "12", service: "پرینت رنگی", note: "۱۰ برگ" }, { customers, id: 555, today: "2026-11-15" });
+  assert.deepEqual(o, { id: 555, customerId: "12", customerName: "سارا رضایی", title: "پرینت رنگی", notes: "۱۰ برگ — (درخواست از مینی‌اپ تلگرام)", amount: 0, status: "new", createdAt: "2026-11-15", source: "miniapp" });
+  assert.equal(buildOrderFromRequest({ customerId: "99", service: "x" }, { customers, id: 1, today: "t" }), null);
+  assert.equal(buildOrderFromRequest({ service: "x" }, { customers, id: 1, today: "t" }), null);
+});
+
+test("applyPendingOrderActions: اعمال، emit فقط وقتی تغییر هست، ack با فهرست درست", async () => {
+  const orders = [{ id: "o1", status: "new", title: "الف" }], applied = [], acks = []; let emits = 0;
+  const api = { orderActions: async () => ({ items: [{ id: ID(1), orderId: "o1", status: "completed", by: "م" }, { id: ID(2), orderId: "x", status: "new" }] }), ackOrderActions: async (b) => { acks.push(b); return {}; } };
+  const deps = { readOrders: () => orders, applyStatus: (o, s, by) => applied.push([o.id, s, by]), emit: () => { emits++; } };
+  const r = await applyPendingOrderActions({ api, deps });
+  assert.deepEqual(r, { applied: 1, notFound: 1, changed: 1 }); assert.deepEqual(applied, [["o1", "completed", "م"]]); assert.equal(emits, 1);
+  assert.deepEqual(acks, [{ applied: [ID(1)], notFound: [ID(2)] }]);
+  // صف خالی: نه emit نه ack
+  const none = await applyPendingOrderActions({ api: { orderActions: async () => ({ items: [] }), ackOrderActions: async () => { throw new Error("نباید"); } }, deps });
+  assert.deepEqual(none, { applied: 0, notFound: 0, changed: 0 }); assert.equal(emits, 1);
+});
+
+test("secondsLeft + نقطه‌های API جدید به مسیر درست می‌روند", () => {
+  assert.equal(secondsLeft(new Date(Date.now() + 125_000).toISOString()) >= 124, true);
+  assert.equal(secondsLeft(new Date(Date.now() - 5000).toISOString()), 0); assert.equal(secondsLeft("x"), 0);
+  for (const k of ["createStaffCode", "staffLinks", "unlinkStaff", "setStaffNotify", "requests", "setRequest", "orderActions", "ackOrderActions"]) assert.equal(typeof miniapp[k], "function", k);
 });
