@@ -26,6 +26,7 @@ import BotsPage from "../../bots/BotsPage.jsx";
 import { startMobileUi } from "../../mobile/mobileUi.js";
 import { startInboxPolling } from "../../inbox/inbox.js";
 import { startUploadsPolling } from "../../uploads/uploadsBadge.js";
+import { startMiniappOrders } from "../domain/miniappWire.js";
 import { UploadsBadge, UploadsToast } from "../../uploads/UploadsBadge.jsx";
 import { fmtM, getCurrencyUnit, toFA } from "../core/format.js";
 import { AiAgentPanel, VOICE_FORMAT, VOICE_STORE, agentAsk, agentReady, getAgentCfg } from "../pages/aiAgent.jsx";
@@ -105,6 +106,7 @@ export function MainApp({onLogout,theme,setTheme,customFont,setCustomFont,userEm
   useEffect(()=>startPushSync(),[]);
   useEffect(()=>startInboxPolling(),[]);
   useEffect(()=>startUploadsPolling(),[]);
+  useEffect(()=>startMiniappOrders(),[]);
   // پنجره‌های شناور (Portal) بیرون از ریشهٔ برنامه رندر می‌شوند؛ متغیرهای تم و فونت باید روی body هم باشند تا شفاف نشوند
   useEffect(()=>{
     const b=document.body,vars={...themeVars(theme)};

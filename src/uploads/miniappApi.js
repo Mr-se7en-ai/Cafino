@@ -6,6 +6,15 @@ export const miniapp = {
   info: () => apiRequest("/api/miniapp/info"),
   setEnabled: (enabled) => apiRequest("/api/miniapp/settings", { method: "PATCH", body: { enabled: !!enabled } }),
   putTariff: (groups) => apiRequest("/api/miniapp/tariff", { method: "PUT", body: { groups } }),
+  // ── 1.81: بخش کافی‌نت در مینی‌اپ ──
+  createStaffCode: () => apiRequest("/api/miniapp/staff-codes", { method: "POST", body: {} }),                       // {code:"ABCD-2345", expiresAt, botUsername}
+  staffLinks: () => apiRequest("/api/miniapp/staff-links"),                                                           // {items:[…], canManageAll}
+  unlinkStaff: (userId) => apiRequest(`/api/miniapp/staff-links/${encodeURIComponent(userId)}`, { method: "DELETE" }),
+  setStaffNotify: (userId, notify) => apiRequest(`/api/miniapp/staff-links/${encodeURIComponent(userId)}`, { method: "PATCH", body: { notify: !!notify } }),
+  requests: () => apiRequest("/api/miniapp/requests-admin"),                                                          // {items:[…], newCount}
+  setRequest: (id, body) => apiRequest(`/api/miniapp/requests-admin/${encodeURIComponent(id)}`, { method: "POST", body }),   // {status, reply?, orderId?}
+  orderActions: () => apiRequest("/api/miniapp/order-actions"),                                                       // {items:[{id,orderId,status,by}]}
+  ackOrderActions: (body) => apiRequest("/api/miniapp/order-actions/ack", { method: "POST", body }),                  // {applied:[ids], notFound:[ids]}
 };
 
 /** داده‌های تعرفهٔ برنامه → گروه‌های عمومی [{cat, items:[{name, price}]}] (فقط نام و قیمت؛ بدون شناسه/توضیح داخلی). */

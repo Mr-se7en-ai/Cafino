@@ -235,6 +235,7 @@ export async function registerUploads(app) {
           });
         } catch (e) { await undo(); throw e; }
         reply.code(201);
+        app.miniappBot?.notifyStaff?.(cafeId, `📥 فایل جدید از مشتری\nکد پیگیری ${code} — ${saved.length} فایل${sender.name ? `\nاز: ${sender.name}` : ""}`).catch(() => {});
         return { data: { batchCode: code, count: saved.length, scanned: scan === "clean", statusToken: `${batchId}.${secret}` } };
       } finally { await cleanup(); }
     });

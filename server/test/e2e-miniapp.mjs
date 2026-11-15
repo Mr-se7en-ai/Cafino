@@ -42,14 +42,14 @@ try {
   browser = await chromium.launch();
   const user = { id: 9001, first_name: "علی", last_name: "رضایی", username: "ali", language_code: "fa" };
   const sdk = (verified) => `window.__contactAsked=0;window.Telegram={WebApp:{initData:new URLSearchParams(location.hash.slice(1)).get('tgWebAppData')||'',colorScheme:window.__scheme||'light',ready(){},expand(){},close(){},openLink(u){window.__opened=u},isVersionAtLeast(){return true},requestContact(cb){window.__contactAsked++;fetch('/__verify').then(()=>cb(true))},HapticFeedback:{impactOccurred(){}}}};`;
-  const open = async (scheme, hash, { sdkOn = true } = {}) => {
+  const open = async (scheme, hash, { sdkOn = true, withCafe = true } = {}) => {
     const ctxb = await browser.newContext({ viewport: { width: 390, height: 780 }, deviceScaleFactor: 2, locale: "fa-IR", colorScheme: scheme });
     const page = await ctxb.newPage(), errors = []; page.on("pageerror", (e) => errors.push(String(e))); page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
     await page.route("https://telegram.org/**", (r) => (sdkOn ? r.fulfill({ contentType: "application/javascript", body: sdk() }) : r.abort()));
     await page.route("**/__verify", async (r) => { await ctx.pool.query("UPDATE telegram_users SET phone='9123334455', phone_verified_at=now() WHERE telegram_id=9001"); r.fulfill({ body: "ok" }); });   // «ربات» پس از ارسال مخاطب شماره را تأیید می‌کند
     await page.addInitScript((s) => { window.__scheme = s; }, scheme);
     const csp = []; page.on("response", (r) => { if (r.url().endsWith("/m") || r.url().includes("/m?")) csp.push(r.headers()["content-security-policy"]); });
-    await page.goto(`${base}/m?c=${code}#tgWebAppData=${encodeURIComponent(hash)}`, { waitUntil: "networkidle" });
+    await page.goto(`${base}/m${withCafe ? `?c=${code}` : ""}#tgWebAppData=${encodeURIComponent(hash)}`, { waitUntil: "networkidle" });
     return { page, errors, csp, ctxb };
   };
   const init = sign(user);
@@ -57,7 +57,7 @@ try {
   // ۱) بدون شماره: خانه + کارت تأیید شماره
   let t = await open("light", init);
   await t.page.waitForSelector("text=گیم‌نت آرتین"); await t.page.waitForSelector("text=تأیید شمارهٔ موبایل");
-  must(await t.page.locator(".top").innerText() === "گیم‌نت آرتین", "سربرگ: نام کافی‌نت");
+  must((await t.page.locator(".top b").innerText()) === "گیم‌نت آرتین", "سربرگ: نام کافی‌نت");
   must((await t.page.locator(".stat").count()) === 0, "پیش از تأیید شماره، مانده حساب دیده نمی‌شود");
   must(t.csp[0] && t.csp[0].includes("frame-ancestors") && t.csp[0].includes("telegram.org"), "CSP پوسته اجازهٔ نمایش درون تلگرام را می‌دهد");
   await t.page.screenshot({ path: path.join(SHOTS, "01-home-unverified-light.png") });
@@ -108,5 +108,53 @@ try {
   await pg.goto(`${base}/m`, { waitUntil: "networkidle" }); await pg.waitForSelector("[role=alert]");
   must((await pg.locator("[role=alert]").innerText()).includes("داخل تلگرام"), "بدون initData (مرورگر معمولی) پیام «از داخل تلگرام باز کنید»"); await ctxc.close();
   const t2 = await open("light", init); await t2.page.goto(`${base}/m?c=zzzzzzzzzzzzzzzz#tgWebAppData=${encodeURIComponent(init)}`); await t2.page.waitForSelector("text=لینک کافی‌نت معتبر نیست"); must(true, "کد کافی‌نت نامعتبر → پیام مناسب"); await t2.ctxb.close();
+
+  // ── ۸) ورود دو بخشی: مشتری | کافی‌نت (کد اتصال → کافی‌نت → مدیریت سفارش/فایل/درخواست) ──
+  await ctx.pool.query("UPDATE telegram_users SET chat_id=9100 WHERE false");
+  const emp = { id: 9100, first_name: "مریم", last_name: "کارمند", username: "maryam", language_code: "fa" };
+  const initStaff = sign(emp);
+  let g = await open("light", initStaff, { withCafe: false });                     // بدون کد کافی‌نت: فقط ورود کافی‌نت ممکن است
+  await g.page.waitForSelector('[data-testid="gate-staff"]');
+  must(await g.page.locator('[data-testid="gate-customer"]').isDisabled(), "بدون لینک کافی‌نت، ورود مشتری غیرفعال است و راهنما می‌دهد");
+  await g.page.screenshot({ path: path.join(SHOTS, "10-gate.png") });
+  await g.page.click('[data-testid="gate-staff"]'); await g.page.waitForSelector("text=اتصال حساب تلگرام به کافی‌نت");
+  await g.page.fill("input[aria-label='کد اتصال']", "ZZZZ-9999"); await g.page.click("text=اتصال و ورود"); await g.page.waitForSelector("[role=alert]");
+  must((await g.page.locator("[role=alert]").innerText()).includes("کد اتصال نامعتبر"), "کد اشتباه رد می‌شود");
+  const invite = await O("POST", "/api/users/invite", { email: "emp@e2e.test", role: "staff", firstName: "مریم", lastName: "کارمند" });
+  const cc = client(ctx.app), lg = await cc.post("/api/auth/login", { email: "emp@e2e.test", password: invite.data.temporaryPassword });
+  await cc.call("POST", "/api/auth/password", { body: { currentPassword: invite.data.temporaryPassword, newPassword: PW }, bearer: lg.data.accessToken });
+  const l2 = await cc.post("/api/auth/login", { email: "emp@e2e.test", password: PW }), E = (m, u, b) => cc.call(m, u, { body: b, bearer: l2.data.accessToken });
+  const linkCode = (await E("POST", "/api/miniapp/staff-codes")).data.code;
+  await g.page.fill("input[aria-label='کد اتصال']", linkCode); await g.page.click("text=اتصال و ورود");
+  await g.page.waitForSelector("text=مریم کارمند"); must((await g.page.locator(".nav button").count()) === 5, "پس از اتصال وارد بخش کافی‌نت می‌شود (۵ تب)");
+  must((await g.page.locator(".top").innerText()).includes("گیم‌نت آرتین"), "سربرگ نام کافی‌نت");
+  await g.page.screenshot({ path: path.join(SHOTS, "11-staff-home.png") });
+  // سفارش‌ها: تغییر وضعیت = صف دستور
+  await g.page.click(".nav >> text=سفارش‌ها"); await g.page.waitForSelector("text=چاپ ۲۰ برگ A4 رنگی");
+  await g.page.click("text=چاپ ۲۰ برگ A4 رنگی"); await g.page.click(".pick >> text=تکمیل شده"); await g.page.waitForSelector("text=در انتظار برنامه");
+  const acts = (await O("GET", "/api/miniapp/order-actions")).data.items; must(acts.length === 1 && acts[0].status === "completed" && acts[0].orderId === "o1", "دستور تغییر وضعیت در صفِ برنامه ثبت شد");
+  await g.page.screenshot({ path: path.join(SHOTS, "12-staff-orders.png") });
+  // فایل‌ها
+  await g.page.click(".nav >> text=فایل‌ها"); await g.page.waitForSelector("text=ارسال فایل"); await g.page.click("text=ارسال فایل"); await g.page.click(".pick >> text=چاپ شد");
+  await g.page.waitForSelector(".badge.u-2"); must((await ctx.pool.query("SELECT status FROM customer_uploads WHERE batch_code='12345'")).rows.every((r) => r.status === "printed"), "وضعیت فایل در دیتابیس (و برنامه) عوض شد");
+  // مشتری درخواست می‌دهد (UI واقعی) → کارمند می‌بیند و می‌پذیرد
+  const cust = await open("light", init);
+  await cust.page.click(".nav >> text=سفارش‌ها"); await cust.page.click("text=+ درخواست سفارش جدید");
+  await cust.page.fill("input[aria-label='خدمت']", "چاپ بنر ۲×۱"); await cust.page.fill("textarea[aria-label='توضیحات']", "رنگی، فردا صبح"); await cust.page.click("text=ارسال درخواست");
+  await cust.page.waitForSelector("text=در انتظار بررسی");
+  must((await ctx.pool.query("SELECT service,status FROM miniapp_requests")).rows[0].service === "چاپ بنر ۲×۱", "درخواست مشتری در سرور ثبت شد");
+  await cust.page.screenshot({ path: path.join(SHOTS, "13-customer-request.png") });
+  must((await (await fetch(`${base}/api/miniapp/requests-admin`, { headers: { authorization: `Bearer ${reg.data.accessToken}` } })).json()).data.newCount === 1, "درخواست در برنامهٔ کافی‌نت دیده می‌شود");
+  await g.page.click(".nav >> text=درخواست‌ها"); await g.page.waitForSelector("text=چاپ بنر ۲×۱"); await g.page.fill("input[aria-label='پاسخ']", "فردا ظهر آماده است"); await g.page.click("button:has-text('پذیرش')");
+  await g.page.waitForSelector(".badge.q-accepted"); await g.page.screenshot({ path: path.join(SHOTS, "14-staff-requests.png") });
+  await cust.page.reload({ waitUntil: "networkidle" }); await cust.page.click(".nav >> text=سفارش‌ها"); await cust.page.waitForSelector("text=پاسخ کافی‌نت");
+  must((await cust.page.locator(".page").innerText()).includes("فردا ظهر آماده است"), "مشتری پاسخ و وضعیت «پذیرفته شد» را می‌بیند");
+  // تغییر بخش + ماندگاری انتخاب + قطع اتصال
+  await g.page.click("[aria-label='تغییر بخش']"); await g.page.waitForSelector('[data-testid="gate-staff"]'); must((await g.page.locator('[data-testid="gate-staff"]').innerText()).includes("مریم کارمند"), "دکمهٔ «تغییر بخش» به صفحهٔ ورود دو بخشی برمی‌گردد");
+  await g.page.click('[data-testid="gate-staff"]'); await g.page.click(".nav >> text=حساب"); await g.page.click("text=قطع اتصال این حساب تلگرام"); await g.page.click("text=بله، قطع شود");
+  await g.page.waitForSelector('[data-testid="gate-staff"]'); must((await g.page.locator('[data-testid="gate-staff"]').innerText()).includes("با کد اتصال"), "پس از قطع اتصال دوباره کد لازم است");
+  const real = [...g.errors, ...cust.errors].filter((e) => !/Failed to load resource: the server responded with a status of (400|403)/.test(e));   // ۴۰۰ (کد اشتباه) و ۴۰۳ (تازه‌سازی پس از قطع اتصال) عمدی‌اند
+  must(real.length === 0, "بخش کافی‌نت و درخواست بدون خطای کنسول/صفحه" + real.join(" | "));
+  await g.ctxb.close(); await cust.ctxb.close();
   console.log(`\nتصاویر: ${SHOTS}`);
 } finally { await browser?.close(); await ctx.app.close(); await ctx.pool.end(); fake.close(); await stopDb(); }
