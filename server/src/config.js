@@ -111,6 +111,12 @@ export function loadConfig(source = env) {
     baleApiBase: String(e.BALE_API_BASE || "https://tapi.bale.ai").replace(/\/+$/, ""),
     botTokenKey: e.BOT_TOKEN_KEY || "",                              // کلید رمزنگاری توکن ربات‌ها؛ خالی = مشتق از JWT_SECRET (با تغییر JWT_SECRET باید ربات‌ها دوباره متصل شوند)
     botTz: e.BOT_TZ || "Asia/Tehran",                                // منطقهٔ زمانی «گزارش روزانه» و «امروز/دیروز»
+    miniappToken: String(e.MINIAPP_BOT_TOKEN || "").trim(),            // توکن «یک ربات مشترک برای همهٔ کافی‌نت‌ها» (فقط env؛ هرگز در پایگاه‌داده/لاگ نیست). خالی = مینی‌اپ خاموش
+    miniappUrl: String(e.MINIAPP_URL || (e.PUBLIC_BASE_URL ? String(e.PUBLIC_BASE_URL).replace(/\/+$/, "") + "/m" : "")).replace(/\/+$/, ""),   // نشانی HTTPS مینی‌اپ (تلگرام فقط HTTPS می‌پذیرد)
+    miniappAuthMaxAgeSec: Math.max(60, int(e.MINIAPP_AUTH_MAX_AGE_SEC, 86400)),   // حداکثر عمر initData (auth_date)
+    miniappSessionTtlSec: Math.max(60, int(e.MINIAPP_SESSION_TTL_SEC, 3600)),
+    miniappAuthRatePerMin: Math.max(5, int(e.MINIAPP_AUTH_RATE_PER_MIN, 30)),
+    miniappPollIntervalMs: Math.max(1000, int(e.MINIAPP_POLL_INTERVAL_MS, 3000)),
     referenceChecks: /^(off|false|0)$/i.test(String(e.REFERENCE_CHECKS || "")) ? "off" : "strict",   // strict: ارجاع به مشتری/فاکتور ناموجود رد می‌شود (یتیم‌ساز نیست)
   };
   const problems = [];
@@ -126,11 +132,14 @@ export function loadConfig(source = env) {
   if (cfg.dbSsl === "invalid") problems.push("DB_SSL نامعتبر است — مقدار مجاز: false | true | require | verify-full | no-verify");
   if (cfg.dbSsl === "no-verify" && production && !cfg.dbSslAllowInsecure) problems.push("DB_SSL=no-verify گواهی سرور را تأیید نمی‌کند (قابل شنود/جعل). از DB_SSL=true همراه DB_SSL_CA_FILE استفاده کنید، یا اگر آگاهانه می‌پذیرید DB_SSL_ALLOW_INSECURE=true بگذارید");
   if (cfg.dbSslCaFile && cfg.dbSsl === "off") problems.push("DB_SSL_CA_FILE تنظیم شده ولی DB_SSL=false است؛ احتمالاً می‌خواستید DB_SSL=true بگذارید");
+  if (cfg.miniappToken && !/^\d{3,16}:[A-Za-z0-9_:-]{16,100}$/.test(cfg.miniappToken)) problems.push("MINIAPP_BOT_TOKEN قالب توکن ربات را ندارد (مثلاً 123456789:AA…)");
+  if (cfg.miniappToken && cfg.miniappUrl && production && !/^https:\/\//i.test(cfg.miniappUrl)) problems.push("MINIAPP_URL باید HTTPS باشد (تلگرام مینی‌اپ غیر HTTPS را باز نمی‌کند)");
   for (const k of ["offlineMaxAgeOwnerSec", "offlineMaxAgeStaffSec"]) if (cfg[k] < 300 || cfg[k] > 30 * 24 * 3600) problems.push(`OFFLINE_SESSION_MAX_AGE_* باید بین ۵ دقیقه و ۳۰ روز باشد (${k})`);
   // هشدارها: خطا نیستند ولی مدیر باید ببیند
   cfg.warnings = [];
   if (production && cfg.dbSsl === "off" && cfg.databaseUrl && !PRIVATE_HOST.test(dbHost(cfg.databaseUrl))) cfg.warnings.push(`اتصال به پایگاه‌داده (${dbHost(cfg.databaseUrl)}) بدون TLS است و به‌نظر شبکهٔ عمومی می‌آید — DB_SSL=true و DB_SSL_CA_FILE را تنظیم کنید`);
   if (production && cfg.trustProxy === false) cfg.warnings.push("TRUST_PROXY خاموش است: پشت پراکسی، IP همهٔ کاربران همان IP پراکسی دیده می‌شود (محدودکنندهٔ نرخ و لاگ حسابرسی بی‌اثر می‌شوند)");
+  if (cfg.miniappToken && !cfg.miniappUrl) cfg.warnings.push("MINIAPP_BOT_TOKEN تنظیم است ولی MINIAPP_URL/PUBLIC_BASE_URL خالی است؛ ربات مینی‌اپ شروع نمی‌شود");
   cfg.problems = problems;
   return cfg;
 }

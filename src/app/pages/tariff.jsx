@@ -13,6 +13,7 @@ import ZoomImage from "../components/ZoomImage.jsx";
 import { loadVendor } from "../../vendor/loader.js";
 import { importWorkbookSheets } from "../domain/xlsxImport.js";
 import { IMPORT_FILE_RE, IMPORT_MAX_BYTES, TARIFF_IMPORT_UNDO_KEY, buildTariffFromSheets, decodeCsvBuffer, diffTariffs, parseCsv, tariffToAoa } from "../domain/tariffImport.js";
+import { scheduleTariffSync } from "../../uploads/miniappApi.js";
 import { planRounding, ROUND_MODES, ROUND_UNITS, ROUND_UNIT_LABEL, TARIFF_ROUND_CFG_KEY, TARIFF_ROUND_UNDO_KEY } from "../domain/tariffRound.js";
 
 
@@ -24,7 +25,7 @@ export function useTariffData(){
       return (stored&&Array.isArray(stored)&&stored.length>0)?stored:DEFAULT_TARIFF_DATA;
     }catch{return DEFAULT_TARIFF_DATA;}
   });
-  useEffect(()=>{lsWrite(TARIFF_STORAGE_KEY,data);},[data]);
+  useEffect(()=>{lsWrite(TARIFF_STORAGE_KEY,data);scheduleTariffSync(data);},[data]);
   return [data,setData];
 }
 

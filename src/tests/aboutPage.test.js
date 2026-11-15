@@ -17,8 +17,8 @@ test("درباره من: نسخهٔ فعلی در APP_CHANGELOG ثبت شده و
   if (cur.noAbout === true) return;   // نسخهٔ فقط‌رفع‌اشکال بدون قابلیت تازه
   assert.ok(about.includes(`"${APP_VERSION}"]`), `هیچ کارتی در FEATURES با since "${APP_VERSION}" نیست (یا برای نسخهٔ فقط‌رفع‌اشکال noAbout:true بگذارید)`);
 });
-test("درباره من: هر قابلیت‌های اصلی QR، ابزار PDF، ضدویروس، مشخصات صفحهٔ مشتری و ربات بله/تلگرام ذکر شده است", () => {
-  for (const w of ["QR", "PDF", "ClamAV", "وزیرمتن", "پروفایل فروشگاه", "بله", "تلگرام"]) assert.ok(about.includes(w), `«${w}» در صفحهٔ درباره من نیست`);
+test("درباره من: هر قابلیت‌های اصلی QR، ابزار PDF، ضدویروس، مشخصات صفحهٔ مشتری ربات بله/تلگرام و مینی‌اپ ذکر شده است", () => {
+  for (const w of ["QR", "PDF", "ClamAV", "وزیرمتن", "پروفایل فروشگاه", "بله", "تلگرام", "مینی‌اپ"]) assert.ok(about.includes(w), `«${w}» در صفحهٔ درباره من نیست`);
 });
 test("درباره من: شمارهٔ نسخه‌های package.json و sw.js با APP_VERSION یکی است", () => {
   const pkg = JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf8")).version;

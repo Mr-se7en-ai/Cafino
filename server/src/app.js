@@ -22,6 +22,8 @@ import { registerPermissions } from "./routes/permissions.js";
 import { registerUploads } from "./routes/uploads.js";
 import { registerBots } from "./routes/bots.js";
 import { createBotService } from "./lib/bots.js";
+import { registerMiniapp } from "./routes/miniapp.js";
+import { createMiniappBot } from "./lib/miniappBot.js";
 import { createPermissionService } from "./lib/permissions.js";
 
 const PG_ERRORS = {
@@ -140,6 +142,10 @@ export async function buildApp(cfg, { pool, logger = true } = {}) {
   app.decorate("bots", bots);
   app.addHook("onClose", async () => bots.stop());
   await registerBots(app, bots);
+  const miniBot = createMiniappBot({ pool, cfg, log: app.log });
+  app.decorate("miniappBot", miniBot);
+  app.addHook("onClose", async () => miniBot.stop());
+  await registerMiniapp(app, miniBot);
   registerAdmin(app);
   return app;
 }

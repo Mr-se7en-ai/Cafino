@@ -15,6 +15,7 @@ import { useUploadsSummary } from "./uploadsBadge.js";
 import SessionsPanel from "./SessionsPanel.jsx";
 import FileManager from "./FileManager.jsx";
 import SettingsPanel from "./SettingsPanel.jsx";
+import MiniappPanel from "./MiniappPanel.jsx";
 import { useShopProfileSync } from "./shopSync.js";
 import { useShopInfo } from "../app/domain/invoiceData.js";
 import { card, sub, msgOf, Note, Pill } from "./ui.jsx";
@@ -83,6 +84,7 @@ export default function UploadsPage() {
           {settings && <QrCard settings={settings} shopName={shop?.name} onRotate={rotate} canManage={settings.canManage} />}
           {settings && <SessionsPanel shopName={shop?.name} activeFilter={sessionFilter} onFilter={setSessionFilter} onChanged={() => setTick((t) => t + 1)} />}
           {settings && <FileManager settings={settings} sessionFilter={sessionFilter} onSessionFilter={setSessionFilter} refreshKey={tick} />}
+          {settings?.canManage && <MiniappPanel />}
           {settings?.canManage && <SettingsPanel key={settings.updatedAt} settings={settings} blocked7d={sum.blocked7d} onSaved={(s) => setSettings((p) => ({ ...p, ...s }))} />}
         </>}
     </div>

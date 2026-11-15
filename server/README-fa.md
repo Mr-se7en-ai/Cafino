@@ -85,6 +85,9 @@ IP کاربر برای **محدودکنندهٔ نرخ، قفل ورود و لا
 ## ۶.۱) ربات گزارش بله/تلگرام (از ۱.۷۹.۰)
 راهنمای کامل: [BOTS-fa.md](BOTS-fa.md) — متغیرهای `BOTS_ENABLED`، `BOT_TZ`، `BOT_TOKEN_KEY`، `BALE_API_BASE`، `TELEGRAM_API_BASE` (تلگرام در ایران پراکسی می‌خواهد).
 
+## ۶.۲) مینی‌اپ تلگرام مشتریان (از ۱.۸۰.۰)
+راهنمای کامل: [MINIAPP-fa.md](MINIAPP-fa.md) — یک ربات مشترک برای همهٔ کافی‌نت‌ها؛ متغیرهای `MINIAPP_BOT_TOKEN`، `MINIAPP_URL`، `MINIAPP_AUTH_*`. توکن فقط در `.env`؛ تلگرام در ایران پراکسی می‌خواهد.
+
 ## ۷) آزمون‌ها
 ```bash
 npm test                         # ۲۸ آزمون روی PostgreSQL واقعی (شامل استرس ۱۰۰ پرداخت هم‌زمان از ۱۰ کلاینت) (embedded-postgres؛ یا TEST_DATABASE_URL)
