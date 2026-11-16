@@ -25,13 +25,53 @@ export function planOrderActions(actions, orders) {
   return { updates, applied, notFound };
 }
 
-/** سفارش محلی از «درخواست مشتری»؛ فقط اگر مشتری در برنامه شناخته شود. */
-export function buildOrderFromRequest(req, { customers, id, today }) {
-  const c = (Array.isArray(customers) ? customers : []).find((x) => req?.customerId && String(x.id) === String(req.customerId));
+const FA_DIG = "۰۱۲۳۴۵۶۷۸۹", AR_DIG = "٠١٢٣٤٥٦٧٨٩";
+/** شمارهٔ موبایل را برای مقایسه یکسان می‌کند: ارقام فارسی/عربی → لاتین، +98/0098/98 → 0، فقط ۱۰ رقم آخر معنی دارد. */
+export function normPhone(p) {
+  let d = String(p ?? "").replace(/[۰-۹]/g, (c) => String(FA_DIG.indexOf(c))).replace(/[٠-٩]/g, (c) => String(AR_DIG.indexOf(c))).replace(/\D/g, "");
+  if (d.startsWith("0098")) d = d.slice(4); else if (d.startsWith("98") && d.length >= 12) d = d.slice(2);
+  d = d.replace(/^0+/, "");
+  return d.length >= 10 ? d.slice(-10) : "";
+}
+/** مشتریِ برنامه برای یک درخواست: اول با شناسهٔ مشتری، بعد با شمارهٔ موبایل. */
+export function findCustomerForRequest(req, customers) {
+  const list = Array.isArray(customers) ? customers : [];
+  if (req?.customerId != null && req.customerId !== "") { const byId = list.find((x) => String(x.id) === String(req.customerId)); if (byId) return byId; }
+  const ph = normPhone(req?.phone);
+  return ph ? list.find((x) => normPhone(x.phone) === ph) || null : null;
+}
+/** مشتری تازه از روی درخواست (وقتی در برنامه نیست)؛ بدون نام و شماره ساخته نمی‌شود. */
+export function customerFromRequest(req, { id }) {
+  const full = String(req?.customer ?? "").replace(/\s+/g, " ").trim().slice(0, 80), phone = String(req?.phone ?? "").trim().slice(0, 20);
+  if (!full && !phone) return null;
+  const parts = full.split(" "), firstName = parts.length > 1 ? parts.slice(0, -1).join(" ") : (parts[0] || phone), lastName = parts.length > 1 ? parts[parts.length - 1] : "";
+  return { id: String(id), firstName, lastName, phone, note: "ثبت‌شده خودکار از درخواست مینی‌اپ", nationalId: "", birthDate: "", postalCode: "", address: "", files: [] };
+}
+
+/** سفارش محلی از «درخواست مشتری»؛ فقط اگر مشتری در برنامه شناخته شود (شناسه یا موبایل). amount به ریال. */
+export function buildOrderFromRequest(req, { customers, id, today, amount = 0 }) {
+  const c = findCustomerForRequest(req, customers);
   if (!c) return null;
   const name = [c.firstName, c.lastName].filter(Boolean).join(" ").trim();
   const note = [req.note, "(درخواست از مینی‌اپ تلگرام)"].filter(Boolean).join(" — ");
-  return { id, customerId: String(c.id), customerName: name, title: String(req.service || "سفارش").slice(0, 120), notes: note, amount: 0, status: "new", createdAt: today, source: "miniapp" };
+  const amt = Number.isFinite(Number(amount)) && Number(amount) > 0 ? Math.round(Number(amount)) : 0;
+  return { id, customerId: String(c.id), customerName: name, title: String(req.service || "سفارش").slice(0, 120), notes: note, amount: amt, status: "new", createdAt: today, source: "miniapp", ...(req.id != null ? { miniappRequestId: String(req.id) } : {}) };
+}
+
+/** شمار هر وضعیت و فیلتر/جست‌وجوی فهرست درخواست‌ها (فیلتر: open|new|accepted|done|rejected|all). */
+export function reqCounts(items) {
+  const c = { new: 0, accepted: 0, done: 0, rejected: 0, all: 0 };
+  for (const r of Array.isArray(items) ? items : []) { if (r && r.status in c) c[r.status]++; c.all++; }
+  return c;
+}
+export function filterRequests(items, { filter = "all", q = "" } = {}) {
+  const needle = String(q || "").trim().toLowerCase(), nph = normPhone(q);
+  return (Array.isArray(items) ? items : []).filter((r) => {
+    if (!r) return false;
+    if (filter !== "all" && r.status !== filter) return false;
+    if (!needle) return true;
+    return [r.customer, r.service, r.note, r.phone, r.reply].some((x) => String(x || "").toLowerCase().includes(needle)) || (nph && normPhone(r.phone) === nph);
+  });
 }
 
 /** یک دور: صف را می‌گیرد، اعمال می‌کند، تأیید می‌فرستد. deps: {readOrders, applyStatus(order,status,by), emit()}. */

@@ -26,6 +26,9 @@ import ConnectionsPanel, { normConnSub } from "../pages/connectionsPanel.jsx";
 import { startMobileUi } from "../../mobile/mobileUi.js";
 import { startInboxPolling } from "../../inbox/inbox.js";
 import { startUploadsPolling } from "../../uploads/uploadsBadge.js";
+import { startMiniReqPolling } from "../../uploads/miniReqState.js";
+import { MiniReqBadge } from "../../uploads/MiniReqBadge.jsx";
+import MiniappOrdersPage from "../../uploads/MiniappOrdersPage.jsx";
 import { startMiniappOrders } from "../domain/miniappWire.js";
 import { UploadsBadge, UploadsToast } from "../../uploads/UploadsBadge.jsx";
 import { fmtM, getCurrencyUnit, toFA } from "../core/format.js";
@@ -106,6 +109,7 @@ export function MainApp({onLogout,theme,setTheme,customFont,setCustomFont,userEm
   useEffect(()=>startPushSync(),[]);
   useEffect(()=>startInboxPolling(),[]);
   useEffect(()=>startUploadsPolling(),[]);
+  useEffect(()=>startMiniReqPolling(),[]);
   useEffect(()=>startMiniappOrders(),[]);
   // پنجره‌های شناور (Portal) بیرون از ریشهٔ برنامه رندر می‌شوند؛ متغیرهای تم و فونت باید روی body هم باشند تا شفاف نشوند
   useEffect(()=>{
@@ -511,7 +515,7 @@ export function MainApp({onLogout,theme,setTheme,customFont,setCustomFont,userEm
                 const on=tabOn(t);
                 return(
                   <button key={t.key} className={on?"tab-active":""} data-testid={`nav-${t.key}`} onClick={()=>selectTab(t.key)} title={t.label} style={{position:"relative",display:"flex",alignItems:"center",justifyContent:isCompact?"center":"flex-start",gap:11,width:"100%",background:on?navActiveBg:"transparent",border:"none",borderRight:on?"3px solid #60a5fa":"3px solid transparent",borderRadius:9,padding:isCompact?"11px 0":(sub?"8px 12px":"10px 12px"),marginBottom:2,cursor:"pointer",color:on?navActiveFg:"var(--text-secondary)",fontSize:sub?13:14,fontFamily:"inherit",fontWeight:on?700:500,textAlign:"right",transition:"background .15s"}}>
-                    <Icon name={t.icon} size={sub?16:18}/>{!isCompact&&<span style={{flex:1,textAlign:"right"}}>{skin==="orange"&&(t.key==="pos"||t.key==="dashboard")?orangeTitle(t.key,t.label):t.label}</span>}{t.key==="inbox"&&<InboxBadge style={isCompact?{position:"absolute",top:2,left:4,minWidth:14,height:14,fontSize:9}:{}}/>}{t.key==="uploads"&&<UploadsBadge style={isCompact?{position:"absolute",top:2,left:4,minWidth:14,height:14,fontSize:9}:{}}/>}
+                    <Icon name={t.icon} size={sub?16:18}/>{!isCompact&&<span style={{flex:1,textAlign:"right"}}>{skin==="orange"&&(t.key==="pos"||t.key==="dashboard")?orangeTitle(t.key,t.label):t.label}</span>}{t.key==="inbox"&&<InboxBadge style={isCompact?{position:"absolute",top:2,left:4,minWidth:14,height:14,fontSize:9}:{}}/>}{t.key==="miniapp-orders"&&<MiniReqBadge style={isCompact?{position:"absolute",top:2,left:4,minWidth:14,height:14,fontSize:9}:{}}/>}{t.key==="uploads"&&<UploadsBadge style={isCompact?{position:"absolute",top:2,left:4,minWidth:14,height:14,fontSize:9}:{}}/>}
                   </button>);
               };
               if(n.key)return navBtn(TABS.find(t=>t.key===n.key));
@@ -800,6 +804,7 @@ export function MainApp({onLogout,theme,setTheme,customFont,setCustomFont,userEm
         {activeTab==="health"&&<HealthPage onNavigate={selectTab}/>}
         {activeTab==="inbox"&&<InboxPage/>}
         {activeTab==="uploads"&&<UploadsPage/>}
+        {activeTab==="miniapp-orders"&&<MiniappOrdersPage onOpenOrders={()=>selectTab("orders")} onSell={(r,customerId)=>{setVoiceSalePrefill({customerId:customerId||"",lines:[],notes:[r.service,r.note].filter(Boolean).join(" — "),online:true});setSaleMode("online");setQuickServiceOpen(true);}}/>}
         {activeTab==="about"&&<AboutPage/>}
         {activeTab==="audit"&&<AuditFinancePage sub={auditSub} setSub={setAuditSub}/>}
         {activeTab==="calendar"&&<EventCalendar/>}
@@ -1056,7 +1061,7 @@ export function MainApp({onLogout,theme,setTheme,customFont,setCustomFont,userEm
                   <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}}>
                     {items.map(t=>{const on=tabOn(t);return(
                       <button key={t.key} className={on?"tab-active":""} data-testid={`mnav-${t.key}`} onClick={()=>selectTab(t.key)} style={{position:"relative",background:on?navActiveBg:"var(--bg-app)",border:on?"1px solid #60a5fa":"1px solid var(--border)",borderRadius:12,padding:"14px 4px",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:7,color:on?navActiveFg:"var(--text-secondary)",fontSize:12,fontWeight:on?700:500,fontFamily:"inherit"}}>
-                        <Icon name={t.icon} size={22}/><span>{t.label}</span>{t.key==="inbox"&&<InboxBadge style={{position:"absolute",top:6,left:8}}/>}{t.key==="uploads"&&<UploadsBadge style={{position:"absolute",top:6,left:8}}/>}
+                        <Icon name={t.icon} size={22}/><span>{t.label}</span>{t.key==="inbox"&&<InboxBadge style={{position:"absolute",top:6,left:8}}/>}{t.key==="miniapp-orders"&&<MiniReqBadge style={{position:"absolute",top:6,left:8}}/>}{t.key==="uploads"&&<UploadsBadge style={{position:"absolute",top:6,left:8}}/>}
                       </button>);})}
                   </div>
                 </div>);

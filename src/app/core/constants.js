@@ -337,6 +337,7 @@ export const TABS=[
   {key:"shop-services",icon:"Wrench",label:"فروش خدمات",nav:"shop",saleMode:"services"},
   {key:"shop-inperson",icon:"Store",label:"فروش حضوری",nav:"shop",saleMode:"inperson"},
   {key:"shop-online",icon:"Globe",label:"فروش آنلاین",nav:"shop",saleMode:"online"},
+  {key:"miniapp-orders",icon:"Smartphone",label:"سفارش‌های مینی‌اپ",nav:"shop"},
   {key:"pos",icon:"Calculator",label:"صندوق",nav:"shop"},
   {key:"orders",icon:"ShoppingCart",label:"فروش",nav:"main"},
   {key:"topup",icon:"Smartphone",label:"فروش شارژ و اینترنت",nav:"shop"},
@@ -377,7 +378,7 @@ export const SALE_MODES=Object.freeze(Object.fromEntries(Object.entries(_SM).map
 export const NAV_TREE=[
   {key:"dashboard"},
   {key:"mgmt",orangeOnly:true},
-  {group:"shop",label:"فروشگاه",icon:"Store",keys:["shop-all","shop-services","shop-inperson","shop-online","pos","topup","printscan"]},
+  {group:"shop",label:"فروشگاه",icon:"Store",keys:["shop-all","shop-services","shop-inperson","shop-online","miniapp-orders","pos","topup","printscan"]},
   {group:"accounting",label:"حسابداری",icon:"Wallet",keys:["orders","invoice","transactions","ledger","obligations","audit"]},
   {group:"manage",label:"مدیریت",icon:"Briefcase",keys:["customers","calendar","inbox","uploads","notes","health","inventory","report"]},
   {group:"tools",label:"ابزارها",icon:"Printer",keys:["tariff","links","dateconv"]},

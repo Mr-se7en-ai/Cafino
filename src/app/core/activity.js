@@ -55,6 +55,10 @@ function compareAppVersions(a,b){
 export function computeNotifications(updateInfo=null){
   const notifs=[];
   try{
+    const n=Number(localStorage.getItem("cafino_miniapp_req_new"))||0;   // شمار درخواست‌های «جدید» مینی‌اپ (توسط src/uploads/miniReqState.js ذخیره می‌شود)
+    if(n>0)notifs.push({icon:"📱",color:"#f59e0b",level:"attention",category:"سفارش‌ها",tab:"miniapp-orders",text:`${n.toLocaleString("fa-IR")} سفارش تازه از مینی‌اپ`,detail:"پذیرفتن یا رد کنید"});
+  }catch{}
+  try{
     const accounts=JSON.parse(localStorage.getItem("cafenet_ledger2")||"[]");
     accounts.forEach(a=>{
       (a.entries||[]).forEach(e=>{
