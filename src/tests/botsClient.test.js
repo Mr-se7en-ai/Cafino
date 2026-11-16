@@ -35,10 +35,17 @@ test("مسیرهای API کلاینت با مسیرهای سرور یکی است
   for (const frag of ['"/api/bots"', "/api/bots/${p(provider)}`", "/link`", "/unlink`", "/test`", "/send`"]) assert.ok(api.includes(frag), frag);
   assert.deepEqual(Object.keys(bots).sort(), ["connect", "link", "list", "patch", "remove", "send", "test", "unlink"]);
 });
-test("ثبت: تب bots در TABS و NAV_TREE (مدیریت) و MainApp؛ آیکن موجود؛ مجوز سرور تعریف شده", () => {
-  const c = read("../app/core/constants.js"), m = read("../app/app/MainApp.jsx");
-  assert.match(c, /key:"bots",icon:"Send",label:"ربات بله و تلگرام"/); assert.match(c, /group:"manage"[^\n]*"bots"/);
-  assert.match(m, /activeTab==="bots"&&<BotsPage\/>/); assert.match(m, /import BotsPage from "..\/..\/bots\/BotsPage.jsx"/);
+test("ثبت (۱.۸۲): منوی بله/تلگرام از منوی اصلی به تنظیمات ← اتصال (زیرتب‌های ربات بله، تلگرام، هوش مصنوعی) رفته", () => {
+  const c = read("../app/core/constants.js"), m = read("../app/app/MainApp.jsx"), cp = read("../app/pages/connectionsPanel.jsx");
+  assert.doesNotMatch(c, /key:"bots"/); assert.doesNotMatch(c, /"bots"/);
+  assert.doesNotMatch(m, /activeTab==="bots"/);
+  assert.match(m, /\{key:"connections",label:"اتصال",icon:"Plug"\}/); assert.doesNotMatch(m, /\{key:"ai",label:"هوش مصنوعی"/);
+  assert.match(m, /settingsTab==="connections"&&<ConnectionsPanel sub=\{connSub\} setSub=\{setConnSub\}\/>/);
+  assert.match(m, /if\(key==="bots"\)\{setSettingsTab\("connections"\);setConnSub\("bale"\)/);   // لینک‌های قدیمی
+  assert.match(m, /if\(st==="ai"\)\{setSettingsTab\("connections"\);setConnSub\("ai"\)/);
+  for (const k of ["bale", "telegram", "ai"]) assert.match(cp, new RegExp(`key: "${k}"`));
+  assert.match(cp, /<BotsPage key=\{cur\} provider=\{cur\}/); assert.match(cp, /<AiAgentPanel/);
+  assert.match(read("../bots/BotsPage.jsx"), /filter\(\(s\) => !provider \|\| s\.provider === provider\)/);
   assert.match(read("../components/Icon.jsx"), /\bSend\b/); assert.match(read("../../server/src/lib/permissions.js"), /"bot\.manage"/);
 });
 test("رابط: توکن در state فقط برای ارسال است؛ بعد از اتصال پاک می‌شود، در localStorage/لاگ نمی‌رود و نمایش فقط چهار نویسهٔ آخر است", () => {

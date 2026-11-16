@@ -37,8 +37,10 @@ test("errorText و SCOPES با کلیدهای سرور هم‌خوانند", () 
   assert.deepEqual(m[1].split(",").map((s) => s.trim().replace(/["']/g, "")).sort(), SCOPES.map((s) => s.key).sort());
 });
 
-test("ثبت تب: مرکز مالی در TABS و NAV_TREE و MainApp هست", () => {
-  const c = readFileSync(new URL("../app/core/constants.js", import.meta.url), "utf8"), m = readFileSync(new URL("../app/app/MainApp.jsx", import.meta.url), "utf8");
-  assert.match(c, /key:"fincenter".*label:"مرکز مالی سرور"/); assert.match(c, /group:"accounting"[^\n]*"fincenter"/);
-  assert.match(m, /activeTab==="fincenter"&&<FinanceCenter\/>/);
+test("ثبت (۱.۸۲): مرکز مالی سرور با گزارش حسابرسی در یک منو (دو زیرتب) ادغام شده؛ کلید قدیمی fincenter به زیرتب می‌رود", () => {
+  const c = readFileSync(new URL("../app/core/constants.js", import.meta.url), "utf8"), m = readFileSync(new URL("../app/app/MainApp.jsx", import.meta.url), "utf8"), p = readFileSync(new URL("../audit/AuditFinancePage.jsx", import.meta.url), "utf8");
+  assert.doesNotMatch(c, /key:"fincenter"/); assert.match(c, /key:"audit".*label:"حسابرسی و مرکز مالی"/); assert.match(c, /group:"accounting"[^\n]*"audit"\]/);
+  assert.match(m, /activeTab==="audit"&&<AuditFinancePage/); assert.doesNotMatch(m, /activeTab==="fincenter"/);
+  assert.match(m, /if\(key==="fincenter"\)\{setAuditSub\("finance"\);key="audit";\}/);
+  assert.match(p, /<FinanceCenter \/>/); assert.match(p, /<AuditPanel \/>/);
 });

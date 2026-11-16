@@ -78,7 +78,8 @@ ok(rep.status === 200, "report endpoint: " + rep.status + " " + JSON.stringify(r
 // «مرکز مالی سرور» (UI واقعی روی سرور واقعی): تطبیق مالی + درخواست اصلاح، شیفت صندوق، دسترسی‌ها، BI
 p.on("dialog", (d) => d.accept());
 await p.click('[data-testid="va-close"]').catch(() => {});   // پنل دستیار صوتی از مرحلهٔ قبل باز مانده و روی صفحه را می‌پوشاند
-await p.click('[data-testid="nav-fincenter"]'); await p.waitForSelector('[data-testid="fincenter-page"]', { timeout: 15000 });
+await p.click('[data-testid="nav-audit"]'); await p.waitForSelector('[data-testid="auditfin-page"]', { timeout: 15000 });   // از v1.82.0 «مرکز مالی سرور» تبِ دوم منوی «حسابرسی و مرکز مالی» است
+await p.click('[data-testid="auditfin-tab-finance"]'); await p.waitForSelector('[data-testid="fincenter-page"]', { timeout: 15000 });
 await p.waitForSelector('[data-testid="rec-status"]', { timeout: 15000 });
 ok(/سالم/.test(await p.textContent('[data-testid="rec-status"]')), "finance center: reconciliation report loads and is healthy");
 await p.fill('[data-testid="rec-reason"]', "بازبینی دوره‌ای آزمایشی"); await p.click('[data-testid="rec-submit"]');

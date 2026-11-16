@@ -97,7 +97,7 @@ function Provider({ provider, s, reload, token: tokenCfg }) {
   );
 }
 
-export default function BotsPage() {
+export default function BotsPage({ provider }) {
   const connected = isApiConnected(), guest = isGuestMode();
   const [data, setData] = useState(null), [err, setErr] = useState("");
   const reload = useCallback(async () => { try { setData(await bots.list()); setErr(""); } catch (e) { setErr(msgOf(e)); } }, []);
@@ -113,7 +113,7 @@ export default function BotsPage() {
         : <>
           {err && <Note kind="error" data-testid="bots-error">{err}</Note>}
           {data && !data.schedulerOn && <Note kind="warn">زمان‌بند ربات روی این سرور خاموش است (BOTS_ENABLED=false)؛ گزارش خودکار و پاسخ به فرمان‌ها کار نمی‌کند.</Note>}
-          {data?.providers?.map((s) => <Provider key={s.provider} provider={s.provider} s={s} reload={reload} />)}
+          {data?.providers?.filter((s) => !provider || s.provider === provider).map((s) => <Provider key={s.provider} provider={s.provider} s={s} reload={reload} />)}
         </>}
     </div>
   );

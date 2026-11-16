@@ -12,17 +12,17 @@ import ErrorBoundary from "../../components/ErrorBoundary.jsx";
 import { vault, getPrivacyConfig, setPrivacyConfig, isPhotoRef, photoRefId, makePhotoRef, migrateInlineMedia, applyReplacements, inlineMediaForBackup, sweepVault, dropMissingRefs, referencedIds } from "../../data/customerFiles.js";
 import { reportError } from "../../diagnostics/index.js";
 import { computeNotifications, logActivity } from "../core/activity.js";
+import NotificationCenter from "../components/NotificationCenter.jsx";
 import { audit } from "../../audit/auditTrail.js";
 import { ReasonHost } from "../../audit/ReasonDialog.jsx";
 import { IntegrityBanner } from "../components/IntegrityBanner.jsx";
-import { AuditPanel } from "../../audit/AuditPanel.jsx";
+import AuditFinancePage, { normAuditSub } from "../../audit/AuditFinancePage.jsx";
 import { LogsPanel } from "../../audit/LogsPanel.jsx";
 import { PrintScanHub } from "../../devices/PrintScanHub.jsx";
 import { HealthPage } from "../../health/HealthPage.jsx";
 import { InboxPage, UrgentAnnouncementBar, InboxBadge } from "../../inbox/InboxPage.jsx";
-import FinanceCenter from "../../finance/FinanceCenter.jsx";
 import UploadsPage from "../../uploads/UploadsPage.jsx";
-import BotsPage from "../../bots/BotsPage.jsx";
+import ConnectionsPanel, { normConnSub } from "../pages/connectionsPanel.jsx";
 import { startMobileUi } from "../../mobile/mobileUi.js";
 import { startInboxPolling } from "../../inbox/inbox.js";
 import { startUploadsPolling } from "../../uploads/uploadsBadge.js";
@@ -151,6 +151,8 @@ export function MainApp({onLogout,theme,setTheme,customFont,setCustomFont,userEm
   const [settingsTab,setSettingsTab]=useState("appearance");
   const [logsSub,setLogsSub]=useState("errors");
   const [profileSub,setProfileSub]=useState("user");
+  const [connSub,setConnSub]=useState("bale");
+  const [auditSub,setAuditSub]=useState("audit");
   const [accountingSubTab,setAccountingSubTab]=useState("accounts");
   const [currency,setCurrencyState]=useState(()=>getCurrencyUnit());
   const setCurrency=unit=>{const next=unit==="toman"?"toman":"rial";try{localStorage.setItem(CURRENCY_KEY,next);}catch{}setCurrencyState(next);emitDataChange();audit({action:"currency_change",entityType:"تنظیمات",entityLabel:"واحد پول",before:{unit:currency},after:{unit:next},details:next==="toman"?"تومان":"ریال"});};
@@ -447,7 +449,7 @@ export function MainApp({onLogout,theme,setTheme,customFont,setCustomFont,userEm
 
   const navActiveBg="#2563eb22",navActiveFg=theme==="dark"?"#93c5fd":"#1d4ed8";
   const selectTabRef=useRef(null);
-  const selectTab=(key)=>{const shopTab=TABS.find(t=>t.key===key&&t.saleMode);if(shopTab){setSaleMode(shopTab.saleMode);setQuickServiceOpen(true);setMenuOpen(false);return;}if(String(key).startsWith("settings:")){setSettingsTab(String(key).slice(9));key="settings";}if(key==="followups"){setCustForceMode("followups");key="customers";}else if(key==="assistant"){key="dashboard";}setActiveTab(key);setMenuOpen(false);};
+  const selectTab=(key)=>{const shopTab=TABS.find(t=>t.key===key&&t.saleMode);if(shopTab){setSaleMode(shopTab.saleMode);setQuickServiceOpen(true);setMenuOpen(false);return;}if(String(key).startsWith("settings:")){const st=String(key).slice(9);if(st==="ai"){setSettingsTab("connections");setConnSub("ai");}else if(st.startsWith("connections:")){setSettingsTab("connections");setConnSub(normConnSub(st.slice(12)));}else setSettingsTab(st);key="settings";}if(key==="bots"){setSettingsTab("connections");setConnSub("bale");key="settings";}if(key==="fincenter"){setAuditSub("finance");key="audit";}if(key==="followups"){setCustForceMode("followups");key="customers";}else if(key==="assistant"){key="dashboard";}setActiveTab(key);setMenuOpen(false);};
   selectTabRef.current=selectTab;
   const [custForceMode,setCustForceMode]=useState(null);
   const quickAction=(tabKey,action)=>{setActiveTab(tabKey);setMenuOpen(false);if(action)setPendingAction(action);};
@@ -472,6 +474,7 @@ export function MainApp({onLogout,theme,setTheme,customFont,setCustomFont,userEm
     if(go.settingsTab)setSettingsTab(go.settingsTab);
     if(go.logsSub)setLogsSub(go.logsSub);
     if(go.profileSub)setProfileSub(go.profileSub);
+    if(go.connSub)setConnSub(normConnSub(go.connSub));
     selectTab(go.tab);
   };
   useEffect(()=>{
@@ -605,7 +608,7 @@ export function MainApp({onLogout,theme,setTheme,customFont,setCustomFont,userEm
 
             {/* Notifications */}
             <div style={{position:"relative"}} ref={notifRef}>
-              <button onClick={()=>setNotifOpen(o=>!o)} style={{position:"relative",background:"var(--bg-card)",border:"1px solid var(--border)",borderRadius:9,width:40,height:40,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+              <button data-testid="notif-bell" onClick={()=>setNotifOpen(o=>!o)} style={{position:"relative",background:"var(--bg-card)",border:"1px solid var(--border)",borderRadius:9,width:40,height:40,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
                 <Icon name="Bell" size={17} style={{color:"var(--text-secondary)"}}/>
                 {notifications.length>0&&<span style={{position:"absolute",top:-4,left:-4,background:"#dc2626",color:"#fff",borderRadius:"50%",width:17,height:17,fontSize:9,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700}}>{toFA(Math.min(notifications.length,99))}</span>}
               </button>
@@ -615,19 +618,7 @@ export function MainApp({onLogout,theme,setTheme,customFont,setCustomFont,userEm
                     <div style={{fontSize:13,fontWeight:800,color:"var(--text-primary)"}}>🔔 مرکز اعلان‌ها</div>
                     <div style={{fontSize:11,color:"var(--text-muted)"}}>{toFA(notifications.length)} مورد فعال</div>
                   </div>
-                  {notifications.length===0
-                    ?<div style={{fontSize:12,color:"var(--text-dim)",textAlign:"center",padding:"20px 0"}}>هشدار فعالی وجود ندارد</div>
-                    :notifications.map((n,i)=>(
-                      (()=>{
-                        const level=n.level||"info",badge=level==="critical"?"فوری":level==="attention"?"مهم":level==="warning"?"پیگیری":"اطلاع";
-                        const content=<><div style={{display:"flex",alignItems:"flex-start",gap:7,color:n.color||"var(--text-secondary)",fontWeight:700,lineHeight:1.7}}><span>{n.icon||"🔔"}</span><span style={{flex:1}}>{n.text}</span><span style={{fontSize:9,borderRadius:10,padding:"2px 6px",background:`${n.color||"#64748b"}22`,whiteSpace:"nowrap"}}>{badge}</span></div>{n.category&&<div style={{fontSize:10,color:"var(--text-muted)",marginTop:3}}>{n.category}</div>}{n.detail&&<div style={{fontSize:10,color:"var(--text-muted)",marginTop:2,lineHeight:1.7}}>{n.detail}</div>}</>;
-                        const style={display:"block",width:"100%",textAlign:"right",padding:"9px 10px",borderRadius:9,background:"var(--bg-app)",marginBottom:6,fontSize:12,border:"1px solid transparent",fontFamily:"inherit",cursor:n.tab?"pointer":"default"};
-                        return n.tab
-                          ?<button key={n.key||i} onClick={()=>{setNotifOpen(false);selectTab(n.tab);}} style={style}>{content}</button>
-                          :<div key={n.key||i} style={style}>{content}</div>;
-                      })()
-                    ))
-                  }
+                  <NotificationCenter notifications={notifications} onGo={(tab)=>{setNotifOpen(false);selectTab(tab);}}/>
                 </div>
               )}
             </div>
@@ -808,11 +799,9 @@ export function MainApp({onLogout,theme,setTheme,customFont,setCustomFont,userEm
         {activeTab==="notes"&&<NotesPage/>}
         {activeTab==="health"&&<HealthPage onNavigate={selectTab}/>}
         {activeTab==="inbox"&&<InboxPage/>}
-        {activeTab==="fincenter"&&<FinanceCenter/>}
         {activeTab==="uploads"&&<UploadsPage/>}
-        {activeTab==="bots"&&<BotsPage/>}
         {activeTab==="about"&&<AboutPage/>}
-        {activeTab==="audit"&&<AuditPanel/>}
+        {activeTab==="audit"&&<AuditFinancePage sub={auditSub} setSub={setAuditSub}/>}
         {activeTab==="calendar"&&<EventCalendar/>}
         {/* SETTINGS */}
         {activeTab==="settings"&&(
@@ -824,7 +813,7 @@ export function MainApp({onLogout,theme,setTheme,customFont,setCustomFont,userEm
                 {key:"accounting",label:"تنظیمات حسابداری",icon:"Calculator"},
                 {key:"categories",label:"دسته‌بندی‌ها",icon:"Tags"},
                 {key:"printscan",label:"پرینت و اسکن",icon:"Printer"},
-                {key:"ai",label:"هوش مصنوعی",icon:"Sparkles"},
+                {key:"connections",label:"اتصال",icon:"Plug"},
                 ...(SHOW_SERVER_SETTINGS?[{key:"server",label:"اتصال به سرور",icon:"Plug"}]:[]),
                 ...(SHOW_SERVER_SETTINGS||isApiConnected()?[{key:"sync",label:"همگام‌سازی",icon:"RefreshCw"}]:[]),
                 {key:"privacy",label:"حریم خصوصی",icon:"ShieldCheck"},
@@ -906,11 +895,11 @@ export function MainApp({onLogout,theme,setTheme,customFont,setCustomFont,userEm
             )}
 
             {settingsTab==="printscan"&&<PrintScanSettingsPanel onOpenTool={()=>selectTab("printscan")}/>}
-            {settingsTab==="ai"&&<AiAgentPanel/>}
+            {settingsTab==="connections"&&<ConnectionsPanel sub={connSub} setSub={setConnSub}/>}
             {settingsTab==="server"&&<ServerConnectionPanel/>}
             {settingsTab==="sync"&&<SyncCenterPanel/>}
             {settingsTab==="privacy"&&<PrivacyPanel/>}
-            {settingsTab==="logs"&&<LogsPanel sub={logsSub} setSub={setLogsSub} onOpenAudit={()=>selectTab("audit")}/>}
+            {settingsTab==="logs"&&<LogsPanel sub={logsSub} setSub={setLogsSub} onOpenAudit={()=>{setAuditSub("audit");selectTab("audit");}}/>}
             {settingsTab==="users"&&<UserManagementPanel/>}
             {settingsTab==="backup"&&<BackupSettingsPanel/>}
             {settingsTab==="profile"&&(

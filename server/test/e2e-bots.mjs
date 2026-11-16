@@ -64,9 +64,11 @@ p.on("pageerror", (e) => errs.push(e.message)); p.on("console", (m) => { if (/Co
 await p.goto(base + "/"); await p.waitForSelector('input[type="email"]', { timeout: 30000 });
 await p.fill('input[type="email"]', email); await p.fill('input[type="password"]', password); await p.press('input[type="password"]', "Enter");
 await p.waitForSelector('[data-testid="sync-chip"]', { timeout: 30000 });
-await p.goto(base + "/?tab=bots"); await p.waitForSelector('[data-testid="bots-page"]', { timeout: 30000 });
+// از v1.82.0 منوی «ربات‌ها» به «تنظیمات ← اتصال» (زیرتب‌های ربات بله / ربات تلگرام) رفته است
+const openConn = async (sub) => { await p.waitForSelector('[data-testid="settings-tab-connections"]', { timeout: 30000 }); await p.click('[data-testid="settings-tab-connections"]'); await p.click(`[data-testid="conn-tab-${sub}"]`); await p.waitForSelector('[data-testid="bots-page"]', { timeout: 30000 }); };
+await p.goto(base + "/?tab=settings"); await openConn("telegram");
 await p.waitForSelector('[data-testid="bot-card-telegram"]', { timeout: 15000 });
-ok((await p.textContent('[data-testid="bot-status-telegram"]')).includes("متصل نیست") && (await p.textContent('[data-testid="bot-status-bale"]')).includes("متصل نیست"), "both providers start as «متصل نیست»");
+ok((await p.textContent('[data-testid="bot-status-telegram"]')).includes("متصل نیست"), "Telegram starts as «متصل نیست»");
 ok((await p.textContent('[data-testid="bot-card-telegram"]')).includes("TELEGRAM_API_BASE"), "Telegram card explains the Iran filtering / proxy requirement");
 // توکن ناقص → دکمه غیرفعال
 await p.fill('[data-testid="bot-token-telegram"]', "abc");
@@ -101,14 +103,18 @@ await p.click('[data-testid="bot-daily-telegram"]'); await p.waitForFunction(() 
 await p.fill('[data-testid="bot-time-telegram"]', "00:00"); await p.waitForTimeout(800);
 let st = (await api("GET", "/api/bots", null, tok)).json.data.providers[0]; ok(st.dailyEnabled === true && st.dailyTime === "00:00", "daily report enabled with the chosen time (persisted on the server)");
 const n2 = botSt.sent.length; await app.bots.tick(); ok(botSt.sent.length === n2 + 1 && /گزارش امروز/.test(botSt.sent.at(-1).text), "scheduler sent the daily report");
-await p.reload(); await p.waitForSelector('[data-testid="bot-linked-telegram"]', { timeout: 15000 });
+await p.reload(); await openConn("telegram"); await p.waitForSelector('[data-testid="bot-linked-telegram"]', { timeout: 15000 });
 ok(await p.isChecked('[data-testid="bot-daily-telegram"]') && (await p.inputValue('[data-testid="bot-time-telegram"]')) === "00:00", "settings survive a reload");
 // بله
+await p.click('[data-testid="conn-tab-bale"]'); await p.waitForSelector('[data-testid="bot-card-bale"]', { timeout: 15000 });
+ok((await p.$('[data-testid="bot-card-telegram"]')) === null, "Bale sub-tab shows only the Bale card");
 await p.fill('[data-testid="bot-token-bale"]', TOKEN_BALE); await p.click('[data-testid="bot-connect-bale"]'); await p.waitForSelector('[data-testid="bot-linkbtn-bale"]', { timeout: 15000 });
 ok((await p.textContent('[data-testid="bot-card-bale"]')).includes("cafino_e2e_bale"), "Bale connects the same way");
 await p.screenshot({ path: process.env.SHOT || "/tmp/bots-page-1.79.png", fullPage: true });
 // جداکردن چت و حذف
+await p.click('[data-testid="conn-tab-telegram"]'); await p.waitForSelector('[data-testid="bot-unlink-telegram"]', { timeout: 15000 });
 p.once("dialog", (d) => d.accept()); await p.click('[data-testid="bot-unlink-telegram"]'); await p.waitForSelector('[data-testid="bot-linkbtn-telegram"]', { timeout: 15000 });
+await p.click('[data-testid="conn-tab-bale"]'); await p.waitForSelector('[data-testid="bot-remove-bale"]', { timeout: 15000 });
 p.once("dialog", (d) => d.accept()); await p.click('[data-testid="bot-remove-bale"]'); await p.waitForSelector('[data-testid="bot-token-bale"]', { timeout: 15000 });
 ok(true, "unlink + remove connection work from the UI");
 ok(viol.length === 0, `no CSP violations${viol.length ? ": " + viol[0] : ""}`); ok(errs.length === 0, `no page errors${errs.length ? ": " + errs[0] : ""}`);

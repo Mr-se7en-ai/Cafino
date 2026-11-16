@@ -89,7 +89,7 @@ export const suggestions = () => ["فروش جدید", "بدهکار", "کم‌�
 
 const TAB_WORDS = {
   dashboard: "خانه داشبورد مدیریتی کاشی ویجت", pos: "صندوق فروش کاشیر pos", orders: "فروش سفارش‌ها فروش‌ها سفارش", topup: "شارژ اینترنت بسته ایرانسل همراه اول رایتل", invoice: "فاکتور فاکتورها صورتحساب",
-  audit: "گزارش حسابرسی audit ابطال تغییر قیمت موجودی بازیابی بکاپ دلیل دستگاه زنجیره هش لاگ فعالیت",
+  audit: "گزارش حسابرسی مرکز مالی سرور مالی audit ابطال تغییر قیمت موجودی بازیابی بکاپ دلیل دستگاه زنجیره هش لاگ فعالیت",
   inbox: "اطلاعیه اطلاعیه‌ها تیکت تیکت‌ها پشتیبانی پنل مرکزی ادمین پیام صندوق پیام پاسخ درخواست پشتیبان",
   health: "سلامت کسب‌وکار بررسی وضعیت کافینو کنترل مغایرت تعادل حساب‌ها موجودی بدهی بکاپ همگام‌سازی",
   customers: "مشتری مشتریان باشگاه پیگیری", ledger: "حساب دفتر کل بدهکار بستانکار بدهی", obligations: "تعهدات چک اجاره حقوق قسط کارمند", calendar: "تقویم رویداد ثبت‌نام مناسبت", notes: "یادداشت یادآور یادآوری",
@@ -98,7 +98,7 @@ const TAB_WORDS = {
 export const SETTINGS_SECTIONS = [
   { key: "appearance", label: "ظاهر برنامه", words: "تم تیره روشن شیشه‌ای فلوئنت fluent فونت" }, { key: "profile", psub: "shop", label: "پروفایل ← پروفایل فروشگاه", words: "نام فروشگاه آدرس تلفن لوگو مشخصات کافی‌نت شماره کارت شبا" },
   { key: "accounting", label: "تنظیمات حسابداری", words: "واحد پول تومان ریال مالیات" }, { key: "categories", label: "دسته‌بندی‌ها", words: "دسته بندی درآمد هزینه" },
-  { key: "printscan", label: "تنظیمات پرینت و اسکن", words: "هزینه پرینت" }, { key: "ai", label: "هوش مصنوعی و دستیار", words: "دستیار صوتی agent" },
+  { key: "printscan", label: "تنظیمات پرینت و اسکن", words: "هزینه پرینت" }, { key: "connections", sub: "ai", conn: true, label: "اتصال ← هوش مصنوعی و دستیار", words: "دستیار صوتی agent کلید api هوش مصنوعی" }, { key: "connections", sub: "bale", conn: true, label: "اتصال ← ربات بله", words: "بله bale ربات گزارش روزانه توکن بات‌فادر" }, { key: "connections", sub: "telegram", conn: true, label: "اتصال ← ربات تلگرام", words: "تلگرام telegram ربات گزارش روزانه توکن botfather" },
   { key: "privacy", label: "حریم خصوصی", words: "امنیت" }, { key: "logs", sub: "errors", label: "لاگ ← لاگ خطا", words: "خطا error ارور مشکل" }, { key: "logs", sub: "activity", label: "لاگ ← لاگ فعالیت", words: "فعالیت تاریخچه عملیات کاربران" }, { key: "backup", label: "پشتیبان‌گیری و بازیابی", words: "بکاپ پشتیبان بازیابی خروجی" },
   { key: "profile", psub: "user", label: "پروفایل ← پروفایل کاربر", words: "رمز عبور حساب کاربری ایمیل کد بازیابی" },
 ];
@@ -129,7 +129,7 @@ export function buildIndex(src) {
   const add = (cat, id, title, sub, extra, go, date, meta) => out.push({ key: `${cat}:${id}`, cat, title: String(title || ""), sub: String(sub || ""), extra: String(extra || ""), go, date: date || "", meta: meta || "" });
   QUICK_ACTIONS.forEach((a) => add("action", a.id, a.title, a.sub, a.words, { action: a.id }));
   TABS.forEach((t) => add("page", t.key, t.label, "صفحه", TAB_WORDS[t.key] || "", { tab: t.key }));
-  SETTINGS_SECTIONS.forEach((x) => add("setting", x.key + (x.sub || "") + (x.psub || ""), `تنظیمات ← ${x.label}`, "تنظیمات", `${x.label} ${x.words}`, { tab: "settings", settingsTab: x.key, ...(x.sub ? { logsSub: x.sub } : {}), ...(x.psub ? { profileSub: x.psub } : {}) }));
+  SETTINGS_SECTIONS.forEach((x) => add("setting", x.key + (x.sub || "") + (x.psub || ""), `تنظیمات ← ${x.label}`, "تنظیمات", `${x.label} ${x.words}`, { tab: "settings", settingsTab: x.key, ...(x.conn ? { connSub: x.sub } : x.sub ? { logsSub: x.sub } : {}), ...(x.psub ? { profileSub: x.psub } : {}) }));
   const customers = arr(src.customers);
   customers.forEach((c) => add("customer", c.id, custName(c) || "بدون نام", [c.phone, c.address].filter(Boolean).join(" · "), `${c.nationalId || ""} ${c.note || ""} ${c.postalCode || ""}`, { tab: "customers", focus: { kind: "customer", id: c.id } }, "", c.wallet ? `کیف پول ${toman(c.wallet)}` : ""));
   const seenInv = new Set();
