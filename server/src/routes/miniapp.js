@@ -11,6 +11,7 @@ import { tx } from "../db.js";
 import { audit } from "../lib/audit.js";
 import { HttpError, forbidden, invalid, unauthorized } from "../lib/errors.js";
 import { generateCode } from "../lib/uploads.js";
+import { cleanCard, cleanLine } from "../lib/miniappShop.js";
 import { registerMiniappStaff } from "./miniappStaff.js";
 import { MiniappAuthError, codeFromPayload, phoneLikePatterns, samePhone, sanitizeTariff, signSession, tariffHash, verifyInitData, verifySession } from "../lib/miniapp.js";
 
@@ -47,12 +48,13 @@ export async function registerMiniapp(app, bot) {
   });
 
   // ── کمک‌ها ──────────────────────────────────────────────────────────────────────────────────────────────────
-  const CAFE_SQL = `SELECT s.cafe_id, s.code, s.miniapp_enabled, s.enabled AS upload_enabled, s.show_shop_info, s.shop_name, s.shop_address, s.shop_phone, s.shop_mobile, s.shop_logo_hash, c.name, c.status
+  const CAFE_SQL = `SELECT s.cafe_id, s.code, s.miniapp_enabled, s.enabled AS upload_enabled, s.show_shop_info, s.shop_name, s.shop_address, s.shop_phone, s.shop_mobile, s.shop_logo_hash, s.pay_cash_enabled, s.pay_card_enabled, s.pay_card_number, s.pay_card_holder, s.pay_bank, c.name, c.status
     FROM upload_settings s JOIN cafes c ON c.id = s.cafe_id`;
   const cafeView = (r) => r && ({
     name: r.shop_name || r.name, code: r.code, address: r.show_shop_info ? r.shop_address : "", phone: r.show_shop_info ? r.shop_phone : "", mobile: r.show_shop_info ? r.shop_mobile : "",
     logoUrl: r.show_shop_info && r.shop_logo_hash ? `/u/${r.code}/logo` : null, uploadPath: r.upload_enabled ? `/u/${r.code}` : null,
   });
+  const payView = (r) => ({ cashEnabled: r?.pay_cash_enabled !== false, cardEnabled: !!r?.pay_card_enabled, cardNumber: r?.pay_card_number || "", cardHolder: r?.pay_card_holder || "", bank: r?.pay_bank || "" });
   const usable = (r) => r && r.miniapp_enabled && r.status === "active";
 
   async function ensureLink(telegramId, cafeId, phone) {
@@ -196,21 +198,33 @@ export async function registerMiniapp(app, bot) {
     const s = await ensureSettings(req.user.cafeId);
     const linked = s ? (await pool.query("SELECT count(*)::int AS n FROM telegram_links WHERE cafe_id=$1", [req.user.cafeId])).rows[0].n : 0;
     const t = (await pool.query("SELECT hash, updated_at, jsonb_array_length(data) AS groups FROM shop_public_tariff WHERE cafe_id=$1", [req.user.cafeId])).rows[0];
+    const sp = (await pool.query("SELECT pay_cash_enabled, pay_card_enabled, pay_card_number, pay_card_holder, pay_bank FROM upload_settings WHERE cafe_id=$1", [req.user.cafeId])).rows[0];
     let botUsername = bot.info()?.username || "";
     if (!botUsername) botUsername = (await pool.query("SELECT bot_username FROM miniapp_bot_state WHERE id=1")).rows[0]?.bot_username || "";
     return { data: { serverEnabled: bot.enabled(), botUsername, hasCode: !!s, enabled: s ? s.miniapp_enabled : true, link: s && botUsername ? `https://t.me/${botUsername}?start=c_${s.code}` : "", linkedCustomers: linked,
-      tariff: t ? { hash: t.hash, updatedAt: iso(t.updated_at), groups: t.groups } : null } };
+      tariff: t ? { hash: t.hash, updatedAt: iso(t.updated_at), groups: t.groups } : null, pay: payView(sp) } };
   });
   app.patch("/api/miniapp/settings", manage, async (req) => {
-    const en = req.body?.enabled;
-    if (typeof en !== "boolean") throw invalid("مقدار «enabled» باید بله/خیر باشد");
+    const b = req.body && typeof req.body === "object" ? req.body : {};
+    for (const k of ["enabled", "payCashEnabled", "payCardEnabled"]) if (b[k] !== undefined && typeof b[k] !== "boolean") throw invalid(`مقدار «${k}» باید بله/خیر باشد`);
+    let card;
+    if (b.payCardNumber !== undefined) { card = cleanCard(b.payCardNumber); if (card === null) throw invalid("شمارهٔ کارت باید ۱۶ رقم باشد"); }
+    const holder = b.payCardHolder === undefined ? undefined : cleanLine(b.payCardHolder, 60), bank = b.payBank === undefined ? undefined : cleanLine(b.payBank, 40);
+    if (b.enabled === undefined && b.payCashEnabled === undefined && b.payCardEnabled === undefined && card === undefined && holder === undefined && bank === undefined) throw invalid("چیزی برای ذخیره نیست");
     const s = await ensureSettings(req.user.cafeId);
     if (!s) throw new HttpError(409, "upload_settings_missing", "تنظیمات کافی‌نت ساخته نشد؛ دوباره تلاش کنید");
-    await tx(pool, async (c) => {
-      await c.query("UPDATE upload_settings SET miniapp_enabled=$2, updated_at=now() WHERE cafe_id=$1", [req.user.cafeId, en]);
-      await audit(c, { cafeId: req.user.cafeId, userId: req.user.id, action: "miniapp.settings", entity: "miniapp", details: { enabled: en }, ip: req.ip });
+    const out = await tx(pool, async (c) => {
+      const cur = (await c.query("SELECT pay_card_number, pay_card_enabled, pay_cash_enabled FROM upload_settings WHERE cafe_id=$1 FOR UPDATE", [req.user.cafeId])).rows[0];
+      const nextNumber = card === undefined ? cur.pay_card_number : card, nextCard = b.payCardEnabled === undefined ? cur.pay_card_enabled : b.payCardEnabled, nextCash = b.payCashEnabled === undefined ? cur.pay_cash_enabled : b.payCashEnabled;
+      if (nextCard && !nextNumber) throw invalid("برای فعال‌کردن کارت‌به‌کارت، شمارهٔ کارت ۱۶ رقمی را وارد کنید");
+      if (!nextCard && !nextCash && (b.payCardEnabled !== undefined || b.payCashEnabled !== undefined)) throw invalid("حداقل یک روش پرداخت باید فعال بماند");
+      const r = (await c.query(`UPDATE upload_settings SET miniapp_enabled=COALESCE($2, miniapp_enabled), pay_cash_enabled=$3, pay_card_enabled=$4, pay_card_number=$5,
+          pay_card_holder=COALESCE($6, pay_card_holder), pay_bank=COALESCE($7, pay_bank), updated_at=now() WHERE cafe_id=$1 RETURNING miniapp_enabled, pay_cash_enabled, pay_card_enabled, pay_card_number, pay_card_holder, pay_bank`,
+        [req.user.cafeId, b.enabled ?? null, nextCash, nextCard, nextNumber, holder ?? null, bank ?? null])).rows[0];
+      await audit(c, { cafeId: req.user.cafeId, userId: req.user.id, action: "miniapp.settings", entity: "miniapp", details: { enabled: b.enabled, payCash: nextCash, payCard: nextCard, cardChanged: card !== undefined }, ip: req.ip });
+      return r;
     });
-    return { data: { enabled: en } };
+    return { data: { enabled: out.miniapp_enabled, pay: payView(out) } };
   });
   app.put("/api/miniapp/tariff", { ...manage, config: { rateLimit: { max: 30, timeWindow: "1 minute" } }, bodyLimit: 400 * 1024 }, async (req) => {
     const r = sanitizeTariff(req.body?.groups);
