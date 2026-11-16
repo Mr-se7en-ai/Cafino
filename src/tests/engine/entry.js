@@ -44,3 +44,4 @@ export { liquidThemeVars } from "../../skins/skin.js";
 export { LIQUID_CSS } from "../../skins/liquid/liquidCss.js";
 export * from "../../app/domain/newsFeed.js";
 export * from "../../app/domain/xlsxSafe.js";
+export * from "../../gl/glCore.js";

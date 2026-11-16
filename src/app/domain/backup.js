@@ -12,7 +12,7 @@ import { APP_VERSION } from "../core/version.js";
 import { getVoided } from "./voids.jsx";
 
 
-const BACKUP_KEYS=["cafenet_sales","cafenet_crm_config","cafenet_alert_cfg","cafenet_sw_hidden_pickers","cafenet_theme","cafenet_customfont","cafenet_cats","cafenet_customers","cafenet_orders","cafenet_ledger2","cafenet_inventory","cafenet_inv_cats","cafenet_recipes","cafenet_obligations","cafenet_employees","cafenet_notes","cafenet_reminders","cafenet_dash_layout","cafenet_dash_tiles","cafenet_voice_cfg","cafenet_print_costs","cafenet_devices","cafenet_device_jobs","cafenet_device_meters","cafenet_shop","cafenet_tx3","cafenet_invoices","cafenet_tariff_data","cafenet_operator_logos","cafenet_direct_cats","cafenet_breakeven","cafenet_links","cafenet_cal_events","cafenet_ai_unit","cafenet_club_config","cafenet_topup_catalog","cafenet_pos_config","cafenet_register_closings","cafenet_payment_accounts","cafenet_currency","cafenet_topup_margin","cafenet_voided","cafenet_tenant_scope","cafenet_organizations","cafenet_branches","cafenet_data_schema_version"];
+const BACKUP_KEYS=["cafenet_sales","cafenet_crm_config","cafenet_alert_cfg","cafenet_sw_hidden_pickers","cafenet_theme","cafenet_customfont","cafenet_cats","cafenet_customers","cafenet_orders","cafenet_ledger2","cafenet_inventory","cafenet_inv_cats","cafenet_recipes","cafenet_obligations","cafenet_employees","cafenet_notes","cafenet_reminders","cafenet_dash_layout","cafenet_dash_tiles","cafenet_voice_cfg","cafenet_print_costs","cafenet_devices","cafenet_device_jobs","cafenet_device_meters","cafenet_shop","cafenet_tx3","cafenet_invoices","cafenet_tariff_data","cafenet_operator_logos","cafenet_direct_cats","cafenet_breakeven","cafenet_links","cafenet_cal_events","cafenet_ai_unit","cafenet_club_config","cafenet_topup_catalog","cafenet_pos_config","cafenet_register_closings","cafenet_gl_recon","cafenet_payment_accounts","cafenet_currency","cafenet_topup_margin","cafenet_voided","cafenet_tenant_scope","cafenet_organizations","cafenet_branches","cafenet_data_schema_version"];
 
 // Keys whose stored value is expected to be JSON (everything except the plain-string theme).
 const BACKUP_JSON_KEYS=BACKUP_KEYS.filter(k=>k!=="cafenet_theme");
@@ -86,7 +86,7 @@ export function restoreBackup(fileText){
 // ══════════════════════════════════════════════════════════════════
 const BACKUP_CFG_KEY="cafenet_backup_cfg";
 
-const FINANCIAL_KEYS=["cafenet_sales","cafenet_devices","cafenet_device_jobs","cafenet_device_meters","cafenet_tx3","cafenet_invoices","cafenet_ledger2","cafenet_obligations","cafenet_employees","cafenet_customers","cafenet_register_closings","cafenet_payment_accounts","cafenet_currency","cafenet_voided","cafenet_topup_margin"];
+const FINANCIAL_KEYS=["cafenet_sales","cafenet_devices","cafenet_device_jobs","cafenet_device_meters","cafenet_tx3","cafenet_invoices","cafenet_ledger2","cafenet_obligations","cafenet_employees","cafenet_customers","cafenet_register_closings","cafenet_gl_recon","cafenet_payment_accounts","cafenet_currency","cafenet_voided","cafenet_topup_margin"];
 
 export function getBackupCfg(){return{auto:true,everyHours:24,keep:7,autoDownload:false,...lsRead(BACKUP_CFG_KEY,{})};}
 

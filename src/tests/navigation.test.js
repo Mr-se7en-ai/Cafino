@@ -7,10 +7,10 @@ const rd = (p) => fs.readFileSync(new URL(p, root), "utf8");
 
 test("گزارش حسابرسی زیرمجموعهٔ حسابداری است و دیگر در تنظیمات نیست", () => {
   const c = rd("app/core/constants.js");
-  assert.match(c, /key:"audit".*label:"گزارش حسابرسی"/);
+  assert.match(c, /key:"audit".*label:"حسابرسی و مرکز مالی"/);
   assert.match(c, /group:"accounting"[^\n]*"audit"/);
   const m = rd("app/app/MainApp.jsx");
-  assert.match(m, /activeTab==="audit"&&<AuditPanel\/>/);
+  assert.match(m, /activeTab==="audit"&&<AuditFinancePage sub=\{auditSub\} setSub=\{setAuditSub\}\/>/);
   assert.doesNotMatch(m, /settingsTab==="activity"/);
   assert.doesNotMatch(m, /key:"activity"/);
 });

@@ -16,6 +16,7 @@ import { MethodSummary, financeOf, getSales, methodSummary, payLabel } from "../
 import { RealProfitReport } from "../domain/topup.jsx";
 import { CatCard, Empty, KPI } from "../components/ui.jsx";
 import { VoidedReport } from "../domain/voids.jsx";
+import GeneralLedger from "../../gl/GeneralLedger.jsx";
 import { OnlineReport } from "./onlineReport.jsx";
 
 
@@ -116,6 +117,7 @@ export function ReportSection({transactions,categories,reportMode,setReportMode,
     {key:"online",icon:"🛒",label:"فروش آنلاین"},
     {key:"realprofit",icon:"💰",label:"سود واقعی (خرید و فروش)"},
     {key:"register",icon:"🧮",label:"صندوق (بستن روزانه)"},
+    {key:"gl",icon:"📒",label:"دفتر کل و مغایرت‌گیری"},
     {key:"voided",icon:"🚫",label:"ابطال‌شده‌ها"},
     {key:"biz",icon:"🎯",label:"گزارش‌های کاربردی و سربه‌سر"},
   ];
@@ -226,6 +228,7 @@ ${printFontCss()}        body{font-family:${PRINT_FONT_FAMILY};color:#1e293b;pad
       {activeReport==="inventory"&&<InventoryReportView/>}
       {activeReport==="realprofit"&&<RealProfitReport/>}
       {activeReport==="register"&&<RegisterHistory/>}
+      {activeReport==="gl"&&<GeneralLedger/>}
       {activeReport==="voided"&&<VoidedReport/>}
       {activeReport==="online"&&<OnlineReport/>}
       {activeReport==="biz"&&<BizReports transactions={transactions}/>}
