@@ -10,8 +10,8 @@ const tab = (k) => E.TABS.find((t) => t.key === k);
 test("منوی فروشگاه: گروه با چهار زیرمنو به‌ترتیب خواسته‌شده", () => {
   const g = E.NAV_TREE.find((n) => n.group === "shop");
   assert.equal(g.label, "فروشگاه");
-  assert.deepEqual(g.keys, ["shop-all", "shop-services", "shop-inperson", "shop-online", "pos", "topup", "printscan"]);
-  assert.deepEqual(g.keys.map((k) => tab(k).label), ["فروش یکپارچه", "فروش خدمات", "فروش حضوری", "فروش آنلاین", "صندوق", "فروش شارژ و اینترنت", "فروش کپی و اسکن"]);
+  assert.deepEqual(g.keys, ["shop-all", "shop-services", "shop-inperson", "shop-online", "miniapp-orders", "pos", "topup", "printscan"]);
+  assert.deepEqual(g.keys.map((k) => tab(k).label), ["فروش یکپارچه", "فروش خدمات", "فروش حضوری", "فروش آنلاین", "سفارش‌های مینی‌اپ", "صندوق", "فروش شارژ و اینترنت", "فروش کپی و اسکن"]);
   for (const k of g.keys.slice(0, 4)) { assert.ok(tab(k).saleMode, k + " باید saleMode داشته باشد"); assert.ok(E.SALE_MODES[tab(k).saleMode], k); }
   for (const k of g.keys.slice(4)) assert.ok(!tab(k).saleMode, k + " صفحهٔ واقعی است، نه حالت فروش");
   assert.ok(E.NAV_TREE.findIndex((n) => n.group === "shop") < E.NAV_TREE.findIndex((n) => n.group === "accounting"), "فروشگاه پیش از حسابداری است");
@@ -33,7 +33,7 @@ test("دو داشبورد: «داشبورد مدیریتی» مخصوص تم ن�
   assert.equal(tab("mgmt").label, "داشبورد مدیریتی"); assert.equal(tab("mgmt").orangeOnly, true);
   const i = E.NAV_TREE.findIndex((n) => n.key === "dashboard"), j = E.NAV_TREE.findIndex((n) => n.key === "mgmt");
   assert.equal(j, i + 1);
-  assert.equal(E.TABS.filter((t) => t.nav === "shop").length, 7);
+  assert.equal(E.TABS.filter((t) => t.nav === "shop").length, 8);
   assert.ok(!E.BOTTOM_NAV.some((t) => String(t.key).startsWith("shop-")), "منوی فروشگاه در نوار پایین موبایل نیست");
 });
 

@@ -1,6 +1,6 @@
 {
   "name": "cafino-push-server",
-  "version": "1.82.0",
+  "version": "1.83.0",
   "private": true,
   "description": "سرویس اعلان (Web Push) کافینو — یادآورها را وقتی برنامه بسته است به مرورگر/موبایل می‌فرستد",
   "type": "module",

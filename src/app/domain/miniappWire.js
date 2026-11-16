@@ -6,7 +6,7 @@ import { todayIso } from "../core/jalali.js";
 import { isApiConnected } from "../../services/api/client.js";
 import { queueOp, mappers as syncMappers } from "../../sync/index.js";
 import { reportError } from "../../diagnostics/index.js";
-import { startMiniappOrderSync, buildOrderFromRequest } from "../../uploads/miniappOrders.js";
+import { startMiniappOrderSync, buildOrderFromRequest, findCustomerForRequest, customerFromRequest } from "../../uploads/miniappOrders.js";
 
 const labelOf = (k) => (ORDER_STATUSES.find((s) => s.key === k) || {}).label || k;
 
@@ -20,9 +20,25 @@ export function applyStatusFromMiniapp(order, status, by) {
 export const miniappOrderDeps = { readOrders: () => lsRead(ORDERS_STORAGE_KEY, []), applyStatus: applyStatusFromMiniapp, emit: () => emitDataChange() };
 export const startMiniappOrders = () => startMiniappOrderSync({ deps: miniappOrderDeps });
 
-/** سفارش محلی از درخواست مشتری می‌سازد؛ شناسهٔ سفارش را برمی‌گرداند (یا null اگر مشتری در برنامه شناخته نشد). */
-export function createOrderFromRequest(req) {
-  const o = buildOrderFromRequest(req, { customers: lsRead(CUSTOMERS_STORAGE_KEY, []), id: uid(), today: todayIso() });
+/** مشتریِ برنامه برای درخواست را برمی‌گرداند؛ اگر نبود (و نام/موبایل داشت) می‌سازد و برای همگام‌سازی صف می‌کند. */
+export function ensureCustomerForRequest(req) {
+  const customers = lsRead(CUSTOMERS_STORAGE_KEY, []);
+  const found = findCustomerForRequest(req, customers);
+  if (found) return found;
+  const nc = customerFromRequest(req, { id: uid() });
+  if (!nc) return null;
+  lsWrite(CUSTOMERS_STORAGE_KEY, [...customers, nc]);
+  try { if (isApiConnected()) queueOp({ resource: "customers", action: "create", entityId: nc.id, body: nc, idem: `customer-${nc.id}`, label: `مشتری: ${[nc.firstName, nc.lastName].filter(Boolean).join(" ")} (مینی‌اپ)` }); } catch (e) { reportError(e, "sync", { stage: "miniapp-customer-create" }); }
+  logActivity("افزودن مشتری (از درخواست مینی‌اپ)", [nc.firstName, nc.lastName].filter(Boolean).join(" "));
+  emitDataChange();
+  return nc;
+}
+
+/** سفارش محلی از درخواست مشتری می‌سازد (مشتری ناشناخته را هم می‌سازد)؛ شناسهٔ سفارش را برمی‌گرداند یا null. amount به ریال. */
+export function createOrderFromRequest(req, { amount = 0 } = {}) {
+  const c = ensureCustomerForRequest(req);
+  if (!c) return null;
+  const o = buildOrderFromRequest(req, { customers: [c], id: uid(), today: todayIso(), amount });
   if (!o) return null;
   lsWrite(ORDERS_STORAGE_KEY, [...lsRead(ORDERS_STORAGE_KEY, []), o]);
   try { if (isApiConnected()) queueOp({ resource: "orders", action: "create", entityId: o.id, body: syncMappers.orderBody(o), idem: `order-${o.id}`, dependsOn: [`customers:${o.customerId}`], label: `سفارش: ${o.title} (مینی‌اپ)` }); } catch (e) { reportError(e, "sync", { stage: "miniapp-order-create" }); }
