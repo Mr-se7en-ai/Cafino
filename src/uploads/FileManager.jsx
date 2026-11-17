@@ -9,11 +9,22 @@ import { uploads, SORTS, STATUS_LABEL, STATUS_COLOR, STATUSES, fmtSize, groupBat
 import { setUploadsNewCount } from "./uploadsBadge.js";
 import { useOrders } from "../app/pages/orders.jsx";
 import { useCustomers } from "../app/pages/customers.jsx";
+import { addUploadSenderToCustomers } from "../app/domain/miniappWire.js";
+import { findCustomerForRequest } from "./miniappOrders.js";
 import FilePreview from "./FilePreview.jsx";
 import PdfToolsDialog, { availableTools } from "./PdfToolsDialog.jsx";
 import { card, sub, msgOf, Note, Pill, Modal, smallBtn } from "./ui.jsx";
 
 const iconBtn = (extra = {}) => ({ background: "transparent", border: "1px solid var(--border)", color: "var(--text-secondary)", borderRadius: 8, padding: "4px 7px", cursor: "pointer", display: "inline-flex", alignItems: "center", fontFamily: "inherit", fontSize: 12, ...extra });
+
+/** «افزودن به مشتریان» با یک دکمه؛ اگر فرستنده (با موبایل) از قبل مشتری باشد، نشان «مشتری است» می‌دهد. */
+function AddSenderButton({ b, customers, onAdded }) {
+  const probe = { customer: b.senderName || "", phone: b.senderPhone || "" };
+  const known = findCustomerForRequest(probe, customers || []);
+  if (!probe.phone && !probe.customer.trim()) return null;
+  if (known) return <Pill color="#34d399" data-testid="up-sender-known">✓ مشتری است</Pill>;
+  return <button data-testid="up-add-customer" onClick={() => { const r = addUploadSenderToCustomers({ name: b.senderName || "", phone: b.senderPhone || "" }); if (r) onAdded(r.created ? `«${[r.customer.firstName, r.customer.lastName].filter(Boolean).join(" ")}» به مشتریان اضافه شد.` : "این مشتری از قبل در لیست بود."); }} style={smallBtn("#2563eb")}>➕ افزودن به مشتریان</button>;
+}
 
 function LinkDialog({ target, onClose, onDone }) {
   const [orders] = useOrders(), [customers] = useCustomers();
@@ -83,7 +94,7 @@ export default function FileManager({ settings, sessionFilter = "", onSessionFil
   const canManage = !!settings?.canManage, canBulk = !!settings?.canBulkDelete, showScan = !!settings?.av && settings.av.mode !== "off";
   const [list, setList] = useState({ items: [], newCount: 0, total: 0, matched: 0 });
   const [status, setStatus] = useState(""), [q, setQ] = useState(""), [sort, setSort] = useState("created"), [dir, setDir] = useState("desc"), [scope, setScope] = useState("");
-  const [err, setErr] = useState(""), [loading, setLoading] = useState(true), [sel, setSel] = useState(() => new Set()), [msg, setMsg] = useState("");
+  const [customers] = useCustomers(), [err, setErr] = useState(""), [loading, setLoading] = useState(true), [sel, setSel] = useState(() => new Set()), [msg, setMsg] = useState("");
   const [preview, setPreview] = useState(null), [tools, setTools] = useState(null), [link, setLink] = useState(null), [limit, setLimit] = useState(100);
   const timer = useRef(0);
   const load = useCallback(async (quiet = false) => {
@@ -152,6 +163,7 @@ export default function FileManager({ settings, sessionFilter = "", onSessionFil
               <b data-testid="up-code" dir="ltr" style={{ fontSize: 16, letterSpacing: 2, color: "var(--accent-light)" }}>#{toFA(b.batchCode)}</b>
               <span style={{ fontSize: 13, fontWeight: 600 }}>{b.senderName || "ناشناس"}</span>
               {b.senderPhone && <span dir="ltr" style={sub}>{toFA(b.senderPhone)}</span>}
+              <AddSenderButton b={b} customers={customers} onAdded={(m) => { setErr(""); setMsg(m); }} />
               <button data-testid="up-batch-link" onClick={() => setLink({ batchId: b.batchId, title: `اتصال ارسال #${b.batchCode}` })} style={smallBtn("var(--border)", "var(--text-secondary)")}>اتصال کل ارسال</button>
               <span style={{ ...sub, marginInlineStart: "auto" }}>{formatLogTimestamp(b.createdAt)}</span>
             </div>

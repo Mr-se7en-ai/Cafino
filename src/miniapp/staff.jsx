@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { faDigits, faNum, jalali, tomanText } from "./format.js";
 import { Empty, ErrorBox, Icon, Skeleton, useAsync } from "./ui.jsx";
+import { ChatBox, Items, PayBadge } from "./shop.jsx";
 
 export const ORDER_STATUS = [["new", "سفارش جدید"], ["inprogress", "در حال انجام"], ["waiting_docs", "منتظر مدارک مشتری"], ["completed", "تکمیل شده"], ["delivered", "تحویل داده شده"]];
 export const UPLOAD_STATUS = [["new", "جدید"], ["seen", "دیده شد"], ["printed", "چاپ شد"], ["done", "انجام شد"]];
@@ -34,6 +35,8 @@ function StaffHome({ api, go, bump }) {
       <button className="card stat tap" onClick={() => go("requests")}><p className="hint">درخواست جدید</p><p className={`big ${d.newRequests ? "warn" : ""}`}>{faNum(d.newRequests)}</p></button>
       {d.newUploads !== null && <button className="card stat tap" onClick={() => go("uploads")}><p className="hint">فایل جدید</p><p className={`big ${d.newUploads ? "warn" : ""}`}>{faNum(d.newUploads)}</p></button>}
       <button className="card stat tap" onClick={() => go("orders")}><p className="hint">سفارش باز</p><p className="big">{faNum(d.openOrders)}</p></button>
+      <button className="card stat tap" onClick={() => go("requests")}><p className="hint">رسید در انتظار تأیید</p><p className={`big ${d.pendingPayments ? "warn" : ""}`}>{faNum(d.pendingPayments || 0)}</p></button>
+      <button className="card stat tap" onClick={() => go("chat")}><p className="hint">پیام خوانده‌نشده</p><p className={`big ${d.unreadChats ? "warn" : ""}`}>{faNum(d.unreadChats || 0)}</p></button>
     </div>
     {!d.canMessage && <section className="card"><p className="warn">برای دریافت اعلان در تلگرام، یک‌بار در گفتگوی ربات دکمهٔ Start را بزنید.</p></section>}
   </div>;
@@ -75,6 +78,30 @@ function StaffUploads({ api, bump }) {
     <p className="hint center">دانلود و حذف فایل‌ها فقط در برنامهٔ کافینو انجام می‌شود.</p></div>;
 }
 
+/** رسید کارت‌به‌کارت: بارگذاری تنبل و نمایش تصویر */
+function Receipt({ api, id }) {
+  const [s, setS] = useState({ state: "idle" });
+  const load = () => { setS({ state: "loading" }); api.call("GET", `staff/requests/${id}/receipt`).then((d) => setS({ state: "ok", d }), (e) => setS({ state: "err", msg: e.message })); };
+  if (s.state === "idle") return <button className="btn block" onClick={load}>دیدن رسید</button>;
+  if (s.state === "loading") return <p className="hint center">در حال بارگذاری رسید…</p>;
+  if (s.state === "err") return <p className="warn" role="alert">{s.msg}</p>;
+  return <figure className="receipt"><img alt="رسید پرداخت مشتری" src={`data:${s.d.mime};base64,${s.d.data}`} />{s.d.ref && <figcaption className="hint">شمارهٔ پیگیری: <span dir="ltr">{faDigits(s.d.ref)}</span></figcaption>}{s.d.count > 1 && <figcaption className="hint">آخرین رسید از {faNum(s.d.count)} رسید</figcaption>}</figure>;
+}
+
+function PayActions({ api, r, canManage, done }) {
+  const [busy, setBusy] = useState(false), [err, setErr] = useState(""), [note, setNote] = useState("");
+  if (!(r.total > 0) || r.payStatus === "paid") return null;
+  const act = (action) => { setBusy(true); setErr(""); api.call("POST", `staff/requests/${r.id}/pay`, { action, note }).then(done, (e) => setErr(e.message)).finally(() => setBusy(false)); };
+  if (!canManage) return <p className="hint">تأیید پرداخت فقط برای مالک/مدیر یا کاربر با دسترسی مدیریت فایل‌هاست.</p>;
+  return <div className="stack">
+    {r.payStatus === "receipt_sent" && <><Receipt api={api} id={r.id} /><input className="input" placeholder="دلیل رد رسید (اختیاری)" maxLength={300} aria-label="دلیل رد" value={note} onChange={(e) => setNote(e.target.value)} />
+      <div className="grid2"><button className="btn primary" disabled={busy} onClick={() => act("confirm")}>تأیید پرداخت</button><button className="btn danger" disabled={busy} onClick={() => act("reject")}>رد رسید</button></div></>}
+    {r.payMethod === "cash" && r.payStatus !== "receipt_sent" && <button className="btn block" disabled={busy} onClick={() => act("cash_received")}>دریافت حضوری انجام شد</button>}
+    {r.payMethod === "card" && r.payStatus !== "receipt_sent" && <p className="hint">منتظر ارسال رسید از مشتری. اگر حضوری پرداخت کرد:</p>}
+    {r.payMethod === "card" && r.payStatus !== "receipt_sent" && <button className="btn block" disabled={busy} onClick={() => act("cash_received")}>دریافت حضوری انجام شد</button>}
+    {err && <p className="warn" role="alert">{err}</p>}</div>;
+}
+
 function StaffRequests({ api, bump }) {
   const [s, run] = useAsync(() => api.call("GET", "staff/requests"), [bump]);
   const [busy, setBusy] = useState(""), [err, setErr] = useState(""), [reply, setReply] = useState({});
@@ -84,10 +111,23 @@ function StaffRequests({ api, bump }) {
   if (!s.data.items.length) return <Empty title="درخواستی نیست" text="وقتی مشتری از مینی‌اپ درخواست بدهد اینجا و در برنامه می‌بینید." />;
   return <div className="stack">{err && <p className="warn" role="alert">{err}</p>}
     {s.data.items.map((r) => <article key={r.id} className="card order"><div className="row"><h3>{r.service}</h3><span className={`badge q-${r.status}`}>{REQ_LABEL[r.status]}</span></div>
-      <p className="hint">{r.customer || "مشتری"}{r.phone ? ` · ۰${faDigits(r.phone)}` : ""} · {jalali(r.createdAt)}</p>{r.note && <p>{r.note}</p>}{r.reply && <p className="hint">پاسخ: {r.reply}</p>}
+      <p className="hint">{r.customer || "مشتری"}{r.phone ? ` · ۰${faDigits(r.phone)}` : ""} · {jalali(r.createdAt)}</p><PayBadge r={r} /><Items items={r.items} total={r.total} />{r.note && <p>{r.note}</p>}{r.reply && <p className="hint">پاسخ: {r.reply}</p>}
+      <PayActions api={api} r={r} canManage={s.data.canManage !== false} done={run} />
       {r.status !== "done" && r.status !== "rejected" && <>{r.status === "new" && <input className="input" placeholder="پاسخ به مشتری (اختیاری)" maxLength={300} aria-label="پاسخ" value={reply[r.id] || ""} onChange={(e) => setReply({ ...reply, [r.id]: e.target.value })} />}
         <div className="grid2">{r.status === "new" ? <><button className="btn primary" disabled={!!busy} onClick={() => act(r.id, "accepted")}>پذیرش</button><button className="btn danger" disabled={!!busy} onClick={() => act(r.id, "rejected")}>رد</button></> : <button className="btn primary" disabled={!!busy} onClick={() => act(r.id, "done")}>انجام شد</button>}</div></>}
       {r.phone && <a className="btn block" href={`tel:0${r.phone}`}>تماس با مشتری</a>}</article>)}</div>;
+}
+
+function StaffChat({ api, bump }) {
+  const [s, run] = useAsync(() => api.call("GET", "staff/chats"), [bump]);
+  const [open, setOpen] = useState(null);
+  useEffect(() => { if (open) return undefined; const t = setInterval(() => { if (!document.hidden) run(); }, 15000); return () => clearInterval(t); }, [open]);
+  if (open) return <div className="stack"><button className="link" onClick={() => { setOpen(null); run(); }}>← همهٔ گفتگوها</button><h3>{open.name}{open.phone ? <small className="hint"> · {faDigits(open.phone)}</small> : null}</h3>
+    <ChatBox api={api} listPath={`staff/chats/${open.telegramId}`} sendPath={`staff/chats/${open.telegramId}`} me="cafe" placeholder="پاسخ به مشتری…" /></div>;
+  if (s.loading && !s.data) return <Skeleton rows={3} />;
+  if (s.error) return <ErrorBox error={s.error} onRetry={run} />;
+  if (!s.data.items.length) return <Empty title="گفتگویی نیست" text="وقتی مشتری از مینی‌اپ پیام بدهد اینجا و در برنامهٔ کافینو می‌بینید." />;
+  return <div className="stack">{s.data.items.map((t) => <button key={t.telegramId} className="card order tap" onClick={() => setOpen(t)}><div className="row"><h3>{t.name}</h3>{t.unread > 0 && <span className="badge q-new">{faNum(t.unread)} جدید</span>}</div><p className="hint">{t.last.sender === "cafe" ? "شما: " : ""}{t.last.body}</p><p className="hint">{jalali(t.last.at)}</p></button>)}</div>;
 }
 
 function StaffAccount({ api, bump, refresh, onUnlinked, tg }) {
@@ -104,8 +144,8 @@ function StaffAccount({ api, bump, refresh, onUnlinked, tg }) {
     {err && <p className="warn" role="alert">{err}</p>}</div>;
 }
 
-export const STAFF_TABS = [["home", "خانه", "M3 11l9-8 9 8v9a1 1 0 01-1 1h-5v-6H9v6H4a1 1 0 01-1-1z"], ["orders", "سفارش‌ها", "M6 3h12l2 4v14H4V7zM4 7h16M9 12h6"], ["uploads", "فایل‌ها", "M12 16V4m0 0l-4 4m4-4l4 4M4 20h16"], ["requests", "درخواست‌ها", "M4 5h16v11H8l-4 4z"], ["account", "حساب", "M12 12a4 4 0 100-8 4 4 0 000 8zM4 21c0-4 4-6 8-6s8 2 8 6"]];
+export const STAFF_TABS = [["home", "خانه", "M3 11l9-8 9 8v9a1 1 0 01-1 1h-5v-6H9v6H4a1 1 0 01-1-1z"], ["orders", "سفارش‌ها", "M6 3h12l2 4v14H4V7zM4 7h16M9 12h6"], ["uploads", "فایل‌ها", "M12 16V4m0 0l-4 4m4-4l4 4M4 20h16"], ["requests", "درخواست‌ها", "M4 5h16v11H8l-4 4z"], ["chat", "گفتگو", "M21 12a8 8 0 01-11.6 7.1L4 20l1.1-4.6A8 8 0 1121 12z"], ["account", "حساب", "M12 12a4 4 0 100-8 4 4 0 000 8zM4 21c0-4 4-6 8-6s8 2 8 6"]];
 export function StaffApp({ api, tg, tab, go, bump, refresh, onUnlinked }) {
-  return { home: <StaffHome api={api} go={go} bump={bump} />, orders: <StaffOrders api={api} bump={bump} />, uploads: <StaffUploads api={api} bump={bump} />, requests: <StaffRequests api={api} bump={bump} />, account: <StaffAccount api={api} bump={bump} refresh={refresh} onUnlinked={onUnlinked} tg={tg} /> }[tab];
+  return { home: <StaffHome api={api} go={go} bump={bump} />, orders: <StaffOrders api={api} bump={bump} />, uploads: <StaffUploads api={api} bump={bump} />, requests: <StaffRequests api={api} bump={bump} />, chat: <StaffChat api={api} bump={bump} />, account: <StaffAccount api={api} bump={bump} refresh={refresh} onUnlinked={onUnlinked} tg={tg} /> }[tab];
 }
 export { Icon };

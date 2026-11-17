@@ -85,7 +85,7 @@ try {
   await t.page.click("[role=tab]:has-text('تمام‌شده')"); must((await t.page.locator(".order").count()) === 1, "تمام‌شده: سفارش تحویل‌شده");
 
   // ۵) پشتیبانی و حساب
-  await t.page.click(".nav >> text=پشتیبانی"); await t.page.waitForSelector("text=تهران، خیابان آزادی");
+  await t.page.click(".nav >> text=گفتگو"); await t.page.click("role=tab[name=\"اطلاعات تماس\"]"); await t.page.waitForSelector("text=تهران، خیابان آزادی");
   must((await t.page.locator("a[href^='tel:']").count()) === 2, "تماس: دو شماره");
   await t.page.screenshot({ path: path.join(SHOTS, "05-support-light.png") });
   await t.page.click(".nav >> text=حساب"); await t.page.waitForSelector("text=تأیید شده");
@@ -126,7 +126,7 @@ try {
   const l2 = await cc.post("/api/auth/login", { email: "emp@e2e.test", password: PW }), E = (m, u, b) => cc.call(m, u, { body: b, bearer: l2.data.accessToken });
   const linkCode = (await E("POST", "/api/miniapp/staff-codes")).data.code;
   await g.page.fill("input[aria-label='کد اتصال']", linkCode); await g.page.click("text=اتصال و ورود");
-  await g.page.waitForSelector("text=مریم کارمند"); must((await g.page.locator(".nav button").count()) === 5, "پس از اتصال وارد بخش کافی‌نت می‌شود (۵ تب)");
+  await g.page.waitForSelector("text=مریم کارمند"); must((await g.page.locator(".nav button").count()) === 6, "پس از اتصال وارد بخش کافی‌نت می‌شود (۶ تب)");
   must((await g.page.locator(".top").innerText()).includes("گیم‌نت آرتین"), "سربرگ نام کافی‌نت");
   await g.page.screenshot({ path: path.join(SHOTS, "11-staff-home.png") });
   // سفارش‌ها: تغییر وضعیت = صف دستور

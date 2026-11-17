@@ -46,6 +46,14 @@ export function createMiniappBot({ pool, cfg, log = {}, fetchImpl = globalThis.f
     return n;
   }
 
+  /** اعلان به یک مشتری (فقط اگر ربات را Start کرده باشد). با دکمهٔ باز کردن مینی‌اپ همان کافی‌نت. بی‌صدا شکست می‌خورد. */
+  async function notifyCustomer(cafeId, telegramId, text) {
+    if (!enabled()) return false;
+    const r = (await pool.query("SELECT t.chat_id, s.code FROM telegram_users t, upload_settings s WHERE t.telegram_id=$1 AND s.cafe_id=$2", [telegramId, cafeId])).rows[0];
+    if (!r || !r.chat_id) return false;
+    try { await say(r.chat_id, clean(text, 900).replace(/ ?\n ?/g, "\n"), { inline_keyboard: [[{ text: BTN_ENTER, web_app: { url: appUrl(r.code) } }]] }); return true; } catch (e) { warn({ err: e?.message }, "miniapp customer notify failed"); return false; }
+  }
+
   async function upsertUser(from, chatId) {
     const r = await pool.query(
       `INSERT INTO telegram_users (telegram_id, first_name, last_name, username, language, chat_id) VALUES ($1,$2,$3,$4,$5,$6)
@@ -123,7 +131,7 @@ export function createMiniappBot({ pool, cfg, log = {}, fetchImpl = globalThis.f
 
   let timer = null, busy = false;
   return {
-    enabled, init, tick, appUrl, notifyStaff,
+    enabled, init, tick, appUrl, notifyStaff, notifyCustomer,
     info: () => info,
     startLink: (code) => (info?.username ? `https://t.me/${info.username}?start=${startPayloadOf(code)}` : ""),
     start() {
