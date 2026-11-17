@@ -13,6 +13,14 @@ export const miniapp = {
   setStaffNotify: (userId, notify) => apiRequest(`/api/miniapp/staff-links/${encodeURIComponent(userId)}`, { method: "PATCH", body: { notify: !!notify } }),
   requests: () => apiRequest("/api/miniapp/requests-admin"),                                                          // {items:[…], newCount}
   setRequest: (id, body) => apiRequest(`/api/miniapp/requests-admin/${encodeURIComponent(id)}`, { method: "POST", body }),   // {status, reply?, orderId?}
+  // ── 1.84: پرداخت، رسید و گفتگو ──
+  inboxSummary: () => apiRequest("/api/miniapp/inbox-summary"),                                                       // {newRequests, pendingPayments, unreadChats}
+  setPaySettings: (patch) => apiRequest("/api/miniapp/settings", { method: "PATCH", body: patch }),                   // {payCashEnabled, payCardEnabled, payCardNumber, payCardHolder, payBank}
+  payAction: (id, body) => apiRequest(`/api/miniapp/requests-admin/${encodeURIComponent(id)}/pay`, { method: "POST", body }),   // {action: confirm|reject|cash_received, note?}
+  receipt: (id) => apiRequest(`/api/miniapp/requests-admin/${encodeURIComponent(id)}/receipt`),                       // {mime, data(base64), at, ref, count}
+  chats: () => apiRequest("/api/miniapp/chats-admin"),                                                                // {items:[{telegramId,name,phone,last,unread}], unread}
+  chatThread: (tg, after = 0) => apiRequest(`/api/miniapp/chats-admin/${encodeURIComponent(tg)}${after ? `?after=${Number(after)}` : ""}`),
+  sendChat: (tg, body) => apiRequest(`/api/miniapp/chats-admin/${encodeURIComponent(tg)}`, { method: "POST", body: { body } }),
   orderActions: () => apiRequest("/api/miniapp/order-actions"),                                                       // {items:[{id,orderId,status,by}]}
   ackOrderActions: (body) => apiRequest("/api/miniapp/order-actions/ack", { method: "POST", body }),                  // {applied:[ids], notFound:[ids]}
 };

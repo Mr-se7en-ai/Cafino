@@ -162,10 +162,10 @@ export function registerMiniappStaff(app, bot, h) {
   });
   app.get("/api/miniapp/staff/requests", staff, async (req, reply) => {
     const r = await pool.query(`SELECT ${REQ_COLS} FROM miniapp_requests WHERE cafe_id=$1 ORDER BY (status='new') DESC, created_at DESC LIMIT 80`, [req.staff.cafeId]);
-    return ok(reply, { items: r.rows.map(reqView) });
+    return ok(reply, { items: r.rows.map(reqView), canManage: !!(req.staff.can("upload.manage") || req.staff.role === "owner" || req.staff.role === "manager") });
   });
-  const REQ_COLS = "id, customer_id, customer_name, phone, service, note, status, reply, order_id, created_at, status_at, items, total, pay_method, pay_status, pay_note, pay_ref, paid_at, (SELECT count(*)::int FROM miniapp_receipts r WHERE r.request_id = miniapp_requests.id) AS receipts";
-  const reqView = (x) => ({ id: x.id, customer: x.customer_name || "", phone: x.phone || "", service: x.service, note: x.note || "", status: x.status, reply: x.reply || "", createdAt: iso(x.created_at), statusAt: iso(x.status_at),
+  const REQ_COLS = "id, telegram_id, customer_id, customer_name, phone, service, note, status, reply, order_id, created_at, status_at, items, total, pay_method, pay_status, pay_note, pay_ref, paid_at, (SELECT count(*)::int FROM miniapp_receipts r WHERE r.request_id = miniapp_requests.id) AS receipts";
+  const reqView = (x) => ({ id: x.id, telegramId: x.telegram_id == null ? null : Number(x.telegram_id), customer: x.customer_name || "", phone: x.phone || "", service: x.service, note: x.note || "", status: x.status, reply: x.reply || "", createdAt: iso(x.created_at), statusAt: iso(x.status_at),
     items: Array.isArray(x.items) ? x.items : [], total: Number(x.total) || 0, payMethod: x.pay_method || "cash", payStatus: x.pay_status || "unpaid", payNote: x.pay_note || "", payRef: x.pay_ref || "", paidAt: iso(x.paid_at), hasReceipt: Number(x.receipts) > 0 });
   async function setRequest(cafeId, id, userId, body, ip) {
     if (!REQ_STATUS.includes(body?.status)) throw invalid("وضعیت درخواست نامعتبر است");

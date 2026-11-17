@@ -7,6 +7,32 @@ import { qrSvg } from "./qr.js";
 import { miniapp, syncTariffNow, tariffToPublic } from "./miniappApi.js";
 import { card, sub, msgOf, Note, Pill } from "./ui.jsx";
 
+const inputSt = { background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 8, padding: "7px 10px", color: "var(--text-primary)", fontSize: 13, fontFamily: "inherit" };
+const faToEn = (v) => String(v || "").replace(/[۰-۹]/g, (d) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d))).replace(/[٠-٩]/g, (d) => String("٠١٢٣٤٥٦٧٨٩".indexOf(d)));
+
+/** روش‌های پرداخت مشتری در مینی‌اپ: حضوری و کارت‌به‌کارت (درگاه و کیف پول «به‌زودی») */
+function PaySettings({ pay, busy, onSave }) {
+  const [cash, setCash] = useState(pay.cashEnabled), [card, setCard] = useState(pay.cardEnabled), [no, setNo] = useState(pay.cardNumber || ""), [holder, setHolder] = useState(pay.cardHolder || ""), [bank, setBank] = useState(pay.bank || "");
+  const digits = faToEn(no).replace(/\D/g, ""), bad = card && digits.length !== 16, none = !cash && !card;
+  const dirty = cash !== pay.cashEnabled || card !== pay.cardEnabled || digits !== (pay.cardNumber || "") || holder !== (pay.cardHolder || "") || bank !== (pay.bank || "");
+  return (
+    <div data-testid="mini-pay" style={{ background: "var(--bg-app)", borderRadius: 10, padding: "10px 12px", display: "flex", flexDirection: "column", gap: 8 }}>
+      <div style={{ fontSize: 13 }}><b>روش‌های پرداخت مشتری در مینی‌اپ</b></div>
+      <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13 }}><input data-testid="pay-cash" type="checkbox" checked={cash} onChange={(e) => setCash(e.target.checked)} />پرداخت حضوری (هنگام تحویل)</label>
+      <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13 }}><input data-testid="pay-card" type="checkbox" checked={card} onChange={(e) => setCard(e.target.checked)} />کارت‌به‌کارت (مشتری رسید می‌فرستد و شما تأیید می‌کنید)</label>
+      {card && <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(170px,1fr))", gap: 8 }}>
+        <input data-testid="pay-card-no" dir="ltr" inputMode="numeric" value={no} onChange={(e) => setNo(e.target.value)} placeholder="شمارهٔ کارت (۱۶ رقم)" maxLength={25} style={{ ...inputSt, textAlign: "center" }} />
+        <input data-testid="pay-holder" value={holder} onChange={(e) => setHolder(e.target.value)} placeholder="نام صاحب کارت" maxLength={60} style={inputSt} />
+        <input data-testid="pay-bank" value={bank} onChange={(e) => setBank(e.target.value)} placeholder="نام بانک" maxLength={40} style={inputSt} />
+      </div>}
+      {bad && <Note kind="warn">شمارهٔ کارت باید ۱۶ رقم باشد.</Note>}
+      {none && <Note kind="warn">حداقل یک روش پرداخت را فعال نگه دارید.</Note>}
+      <div style={sub}>پرداخت با درگاه آنلاین و کیف پول مشتری <b>به‌زودی</b> به مینی‌اپ اضافه می‌شود. تأیید کارت‌به‌کارت دستی است: رسید را در «سفارش‌های مینی‌اپ» ببینید و تأیید یا رد کنید.</div>
+      <div><button data-testid="pay-save" disabled={busy || bad || none || !dirty} onClick={() => onSave({ payCashEnabled: cash, payCardEnabled: card, payCardNumber: digits, payCardHolder: holder.trim(), payBank: bank.trim() })} style={BTN("var(--accent,#e8590c)", "#fff")}>ذخیرهٔ روش‌های پرداخت</button></div>
+    </div>
+  );
+}
+
 export default function MiniappPanel() {
   const [info, setInfo] = useState(null), [err, setErr] = useState(""), [busy, setBusy] = useState(false), [note, setNote] = useState(null);
   const [tariff] = useTariffData();
@@ -45,6 +71,7 @@ export default function MiniappPanel() {
         <div style={sub}>با هر تغییر در «تعرفه»، نام و قیمت خدمات خودکار به مینی‌اپ می‌رسد (فقط نام و قیمت). در حال حاضر در برنامه {toFA(groups.length)} گروه تعرفه دارید.</div>
         <div><button data-testid="mini-sync" disabled={busy} onClick={() => run(() => syncTariffNow(tariff), "تعرفه همگام شد")} style={BTN("var(--border)", "var(--text-secondary)")}>همگام‌سازی تعرفه اکنون</button></div>
       </div>}
+      {info.serverEnabled && info.pay && <PaySettings key={JSON.stringify(info.pay)} pay={info.pay} busy={busy} onSave={(patch) => run(() => miniapp.setPaySettings(patch), "روش‌های پرداخت ذخیره شد")} />}
       {note && <Note kind={note.k}>{note.t}</Note>}
     </div>
   );
