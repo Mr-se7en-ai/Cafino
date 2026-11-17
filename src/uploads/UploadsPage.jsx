@@ -1,4 +1,4 @@
-// «دریافت فایل از مشتری»: QR اختصاصی هر کافی‌نت + فهرست فایل‌های رسیده (دانلود، وضعیت، حذف) + تنظیمات.
+// «مدیریت فایل» (پیش‌تر «دریافت فایل از مشتری»): QR اختصاصی هر کافی‌نت + فهرست فایل‌های رسیده (دانلود، وضعیت، حذف) + تنظیمات.
 // داده روی سرور نگه‌داری می‌شود (QR باید به یک نشانی اینترنتی اشاره کند)؛ بدون سرور فقط راهنما نشان داده می‌شود.
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import Icon from "../components/Icon.jsx";
@@ -74,7 +74,7 @@ export default function UploadsPage() {
       <div style={card}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
           <Icon name="QrCode" size={20} style={{ color: "var(--accent-light)" }} />
-          <b style={{ fontSize: 17 }}>دریافت فایل از مشتری</b>
+          <b style={{ fontSize: 17 }}>مدیریت فایل</b>
           {sum.newCount > 0 && <Pill color="#f59e0b" data-testid="up-new-pill">{toFA(sum.newCount)} فایل جدید</Pill>}
         </div>
         <div style={sub}>QR دائمی کافی‌نت را کنار صندوق بزنید یا برای هر سفارش یک QR موقت بسازید. مشتری فایل را از گوشی می‌فرستد و بدون ورود یا نصب برنامه به این صفحه می‌رسد.</div>

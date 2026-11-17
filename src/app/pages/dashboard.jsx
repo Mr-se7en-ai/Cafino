@@ -19,6 +19,11 @@ import { NotesWidget } from "./notesUI.jsx";
 import { HealthWidget, getLastHealth } from "../../health/HealthPage.jsx";
 import { CafindWidget } from "./searchUI.jsx";
 import { NewsWidget } from "./newsWidget.jsx";
+import { OnlineShopWidget } from "../../uploads/OnlineShopWidget.jsx";
+import { useUploadsSummary } from "../../uploads/uploadsState.js";
+import { useMiniReqSummary } from "../../uploads/miniReqState.js";
+import { onlineShopLive } from "../../uploads/onlineShopLive.js";
+import { isApiConnected } from "../../services/api/client.js";
 import { getCachedNews } from "../domain/newsFeed.js";
 import { dueReminders, getReminders } from "../domain/notes.js";
 
@@ -42,6 +47,7 @@ const DASH_WIDGETS=[
   {id:"cashbox",title:"صندوق به تفکیک روش پرداخت",icon:"🏧",size:"half"},
   {id:"health",title:"کنترل سلامت کسب‌وکار (بررسی وضعیت کافینو)",icon:"🩺",size:"half"},
   {id:"notes",title:"یادداشت و یادآوری (افزودن سریع و سررسیدها)",icon:"⏰",size:"half"},
+  {id:"onlineShop",title:"آنلاین شاپ (سفارش، رسید و پیام مشتریان مینی‌اپ)",icon:"🛒",size:"half"},
   {id:"news",title:"اخبار کافی‌نت (سرتیتر، ساعت و تاریخ)",icon:"📰",size:"full"},
   {id:"followups",title:"پیگیری مشتریان امروز",icon:"🔔",size:"half"},
   {id:"club",title:"باشگاه مشتریان",icon:"🏅",size:"half"},
@@ -76,7 +82,7 @@ const DASH_QUICK_ACTIONS=[
 const DASH_VER=2;
 
 function defaultDashLayout(){
-  const first=["search","quick","kpiToday","kpiMonth","charts","insights","attention","health","notes","news"];
+  const first=["search","quick","kpiToday","kpiMonth","charts","insights","attention","onlineShop","health","notes","news"];
   return{ver:DASH_VER,order:[...first,...DASH_WIDGETS.map(w=>w.id).filter(x=>!first.includes(x))],hidden:["calendar","trend","monthly","bars","ratio","today","cashbox","topSellers","lowStock","debtors","alerts"],sizes:{},period:"30",quickHidden:[],buttonSizes:{}};
 }
 
@@ -90,6 +96,7 @@ function getDashLayout(){
   if(!v.order.includes("notes")){const i=order.indexOf("notes");if(i>=0)order.splice(i,1);const a=order.indexOf("attention");order.splice(a>=0?a+1:order.length,0,"notes");}
   if(!v.order.includes("health")){const i=order.indexOf("health");if(i>=0)order.splice(i,1);const a=order.indexOf("attention");order.splice(a>=0?a+1:order.length,0,"health");}
   if(!v.order.includes("news")){const i=order.indexOf("news");if(i>=0)order.splice(i,1);const a=order.indexOf("notes");order.splice(a>=0?a+1:order.length,0,"news");}
+  if(!v.order.includes("onlineShop")){const i=order.indexOf("onlineShop");if(i>=0)order.splice(i,1);const a=order.indexOf("attention");order.splice(a>=0?a+1:order.length,0,"onlineShop");}
   if(!v.order.includes("alerts")){order.splice(order.indexOf("alerts"),1);order.unshift("alerts");}
   return{ver:DASH_VER,order,hidden:(v.hidden||[]).filter(x=>known.includes(x)),sizes:v.sizes||{},period:v.period||"30",quickHidden:(v.quickHidden||[]).filter(x=>DASH_QUICK_ACTIONS.some(a=>a.id===x)),buttonSizes:Object.fromEntries(DASH_QUICK_ACTIONS.filter(a=>["small","medium","large"].includes(v.buttonSizes?.[a.id])).map(a=>[a.id,v.buttonSizes[a.id]]))};
 }
@@ -183,6 +190,7 @@ const WIDGET_TILE_META={
   cashbox:{color:"#15803d",icon:"Calculator",short:"صندوق امروز",tab:"pos"},
   health:{color:"#0f766e",icon:"Activity",short:"سلامت کسب‌وکار",tab:"health"},
   notes:{color:"#d97706",icon:"Bell",short:"یادداشت و یادآوری"}, // کلیک: باز می‌شود و افزودن سریع را نشان می‌دهد
+  onlineShop:{color:"#0d9488",icon:"ShoppingBag",short:"آنلاین شاپ"},   // کلیک: کاشی زنده به ویجت کامل باز می‌شود (دکمهٔ «باز کردن» به صفحهٔ آنلاین شاپ می‌رود)
   news:{color:"#0284c7",icon:"Newspaper",short:"اخبار کافی‌نت"},
   followups:{color:"#9333ea",icon:"Bell",short:"پیگیری مشتریان",tab:"followups"},
   club:{color:"#a16207",icon:"Sparkles",short:"باشگاه مشتریان",tab:"customers"},
@@ -319,6 +327,8 @@ function useWidgetDrag(boxRef,enabled,onDrop){
 export function ManagementDashboard({transactions,legacy,isMobile,onQuickSale,onQuickProduct,onQuickTx,quickAction,onNavigate,onSearchGo,shopName}){
   const [,setTick]=useState(0);
   useDataSync(()=>setTick(t=>t+1));
+  const upSt=useUploadsSummary();
+  const miniSt=useMiniReqSummary();   // آنلاین شاپ: شمارنده‌های زنده (سفارش/رسید/پیام)
   const [layout,setLayout]=useState(()=>getDashLayout());
   const [edit,setEdit]=useState(false);
   const [tileEditing,setTileEditing]=useState(false);
@@ -413,7 +423,7 @@ export function ManagementDashboard({transactions,legacy,isMobile,onQuickSale,on
 
   const body={
     quick:()=><DashTiles isMobile={isMobile} onQuickSale={onQuickSale} onQuickProduct={onQuickProduct} onQuickTx={onQuickTx} quickAction={quickAction} onEditChange={setTileEditing}
-      live={{salesToday,receivedToday,expenseToday,salesCount:todaySales.length,orders:lsRead(ORDERS_STORAGE_KEY,[]).filter(o=>o.status!=="delivered").length,customers:lsRead(CUSTOMERS_STORAGE_KEY,[]).length,lowStock:stock.length,obls:obls.length,monthNet:fMonth.net,totalDebt,reminders:getReminders().filter(r=>r.status!=="done").length}}/>,
+      live={{salesToday,receivedToday,expenseToday,salesCount:todaySales.length,orders:lsRead(ORDERS_STORAGE_KEY,[]).filter(o=>o.status!=="delivered").length,customers:lsRead(CUSTOMERS_STORAGE_KEY,[]).length,lowStock:stock.length,obls:obls.length,monthNet:fMonth.net,totalDebt,reminders:getReminders().filter(r=>r.status!=="done").length,mini:onlineShopLive(miniSt,isApiConnected()),uploadsNew:upSt.newCount||0}}/>,
     today:()=>(
       <div style={{background:"linear-gradient(135deg,var(--header-grad-1),var(--header-grad-2))",borderRadius:14,padding:"16px 18px",height:"100%",boxSizing:"border-box"}}>
         <div style={{fontSize:14,fontWeight:700,color:"#fff",marginBottom:12}}>📅 امروز · {jalaliLabel(today)}</div>
@@ -451,6 +461,7 @@ export function ManagementDashboard({transactions,legacy,isMobile,onQuickSale,on
     },
     health:()=><HealthWidget onNavigate={onNavigate}/>,
     notes:()=><NotesWidget onNavigate={onNavigate}/>,
+    onlineShop:()=><OnlineShopWidget onNavigate={onNavigate}/>,
     search:()=><CafindWidget onGo={onSearchGo}/>,
     followups:()=>{
       const fl=collectFollowUps();const c=fuCounts(fl);
@@ -641,6 +652,7 @@ export function ManagementDashboard({transactions,legacy,isMobile,onQuickSale,on
       case "orders":{const act=lsRead(ORDERS_STORAGE_KEY,[]).filter(o=>o.status!=="delivered");return{big:toFA(act.length),sub:"سفارش باز",lines:act.slice(0,3).map(o=>o.title||"—")};}
       case "obligations":return{big:toFA(obls.length),sub:"تعهد نزدیک یا عقب‌افتاده",lines:obls.slice(0,3).map(o=>`${o.title} · ${jalaliLabel(o.dueDate)}`)};
       case "news":{const ns=getCachedNews(3);return{big:ns[0]?"📰":"—",sub:ns[0]?ns[0].title:"خبری ذخیره نشده — برای دیدن اخبار کلیک کنید",lines:ns.slice(1).map(n=>n.title)};}
+      case "onlineShop":return onlineShopLive(miniSt,isApiConnected());
       case "search":return{big:"🔍",sub:"جستجو در همه‌جا",lines:["مشتری، فاکتور، انبار…"]};
       case "alerts":{let al=[];try{al=buildFinancialAlerts();}catch{}return{big:toFA(al.length),sub:"هشدار مالی فعال",lines:al.slice(0,3).map(a=>a.text||a.title||"")};}
       case "attention":{const it=attentionItems();const urgent=it.filter(i=>i.level==="red"||i.level==="yellow"||i.level==="blue").length;return{big:urgent>0?toFA(urgent):"✓",sub:urgent>0?"مورد نیازمند توجه":"همه‌چیز مرتب است",lines:it.slice(0,3).map(i=>`${i.icon} ${i.text}`)};}

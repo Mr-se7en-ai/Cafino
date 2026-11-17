@@ -134,16 +134,16 @@ export default function MiniappOrdersPage({ onSell, onOpenOrders }) {
     <div data-testid="miniapp-orders-page" style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 980 }}>
       <div style={card}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-          <b style={{ fontSize: 17 }}>📱 سفارش‌های مینی‌اپ</b>
+          <b style={{ fontSize: 17 }}>🛒 آنلاین شاپ</b>
           {counts.new > 0 && <Pill color="#f59e0b" data-testid="mo-new-count">{toFA(counts.new)} جدید</Pill>}
           <span style={{ flex: 1 }} />
           {connected && <button data-testid="mo-refresh" onClick={load} style={smallBtn("var(--border)", "var(--text-secondary)")}>↻ به‌روزرسانی</button>}
         </div>
         <div style={sub}>سفارش‌ها و درخواست‌هایی که مشتری‌ها از مینی‌اپ تلگرام می‌فرستند اینجا می‌رسد. پذیرفتن، رد یا «انجام شد» را اینجا (یا از بخش کافی‌نت مینی‌اپ) بزنید؛ پاسخ شما در مینی‌اپ به مشتری نشان داده می‌شود.</div>
       </div>
-      {!connected && <Note kind="warn" data-testid="mo-offline">برای دریافت سفارش‌های مینی‌اپ، برنامه باید به سرور وصل باشد (تنظیمات ← اتصال به سرور). مینی‌اپ را هم از «دریافت فایل از مشتری ← مینی‌اپ مشتریان» فعال کنید.</Note>}
+      {!connected && <Note kind="warn" data-testid="mo-offline">برای دریافت سفارش‌های مینی‌اپ، برنامه باید به سرور وصل باشد (تنظیمات ← اتصال به سرور). مینی‌اپ را هم از «مدیریت فایل ← مینی‌اپ مشتریان» فعال کنید.</Note>}
       {connected && denied && <Note kind="warn" data-testid="mo-denied">این حساب اجازهٔ دیدن سفارش‌های مینی‌اپ را ندارد (مجوز «مشاهدهٔ فایل‌های مشتری»).</Note>}
-      {connected && off && <Note kind="warn" data-testid="mo-off">مینی‌اپ روی سرور فعال نیست. از «دریافت فایل از مشتری ← مینی‌اپ مشتریان» فعالش کنید.</Note>}
+      {connected && off && <Note kind="warn" data-testid="mo-off">مینی‌اپ روی سرور فعال نیست. از «مدیریت فایل ← مینی‌اپ مشتریان» فعالش کنید.</Note>}
       {connected && err && !denied && !off && !data && <Note kind="error">{msgOf(err)}</Note>}
       {connected && data && <div style={{ display: "flex", gap: 6 }}>{[["orders", "📱 سفارش‌ها"], ["chat", "💬 گفتگوها"]].map(([k, t]) => <button key={k} data-testid={`mo-view-${k}`} onClick={() => setView(k)} style={smallBtn(view === k ? "var(--accent,#e8590c)" : "var(--border)", view === k ? "#fff" : "var(--text-secondary)", { padding: "7px 16px" })}>{t}</button>)}</div>}
       {connected && data && view === "chat" && <div style={card}><MiniappChatPanel openTg={chatTg} onClosedTg={() => setChatTg(null)} /></div>}

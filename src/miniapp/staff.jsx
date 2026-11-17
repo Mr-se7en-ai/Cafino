@@ -19,7 +19,7 @@ export function StaffGate({ api, info, onLinked }) {
   const [code, setCode] = useState(""), [busy, setBusy] = useState(false), [err, setErr] = useState("");
   const submit = (e) => { e.preventDefault(); setBusy(true); setErr(""); api.call("POST", "staff/link", { code }).then(() => onLinked(), (x) => setErr(x.message)).finally(() => setBusy(false)); };
   return <form className="card stack" onSubmit={submit}><h3>اتصال حساب تلگرام به کافی‌نت</h3>
-    <ol className="how"><li>در برنامهٔ کافینو وارد حساب خود شوید.</li><li>«دریافت فایل از مشتری» ← «مینی‌اپ تلگرام» ← «ساخت کد اتصال».</li><li>کد ۸ حرفی را همین‌جا بنویسید (۱۰ دقیقه اعتبار دارد).</li></ol>
+    <ol className="how"><li>در برنامهٔ کافینو وارد حساب خود شوید.</li><li>«مدیریت فایل» ← «مینی‌اپ تلگرام» ← «ساخت کد اتصال».</li><li>کد ۸ حرفی را همین‌جا بنویسید (۱۰ دقیقه اعتبار دارد).</li></ol>
     <input className="input ltr" dir="ltr" inputMode="text" autoCapitalize="characters" autoComplete="off" spellCheck="false" maxLength={9} placeholder="ABCD-2345" aria-label="کد اتصال" value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} />
     <button className="btn primary block" disabled={busy || code.replace(/[^A-Z0-9]/g, "").length < 8}>{busy ? "در حال بررسی…" : "اتصال و ورود"}</button>{err && <p className="warn" role="alert">{err}</p>}</form>;
 }

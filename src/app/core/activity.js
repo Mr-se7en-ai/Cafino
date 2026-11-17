@@ -59,7 +59,7 @@ export function computeNotifications(updateInfo=null){
     if(n>0)notifs.push({icon:"📱",color:"#f59e0b",level:"attention",category:"سفارش‌ها",tab:"miniapp-orders",text:`${n.toLocaleString("fa-IR")} سفارش تازه از مینی‌اپ`,detail:"پذیرفتن یا رد کنید"});
     const np=Number(localStorage.getItem("cafino_miniapp_pay_pending"))||0, nc=Number(localStorage.getItem("cafino_miniapp_chat_unread"))||0;   // رسید در انتظار تأیید / پیام خوانده‌نشدهٔ مینی‌اپ
     if(np>0)notifs.push({icon:"🧾",color:"#f59e0b",level:"attention",category:"سفارش‌ها",tab:"miniapp-orders",text:`${np.toLocaleString("fa-IR")} رسید پرداخت مینی‌اپ در انتظار تأیید`,detail:"رسید را بررسی و تأیید یا رد کنید"});
-    if(nc>0)notifs.push({icon:"💬",color:"#38bdf8",level:"attention",category:"سفارش‌ها",tab:"miniapp-orders",text:`${nc.toLocaleString("fa-IR")} پیام خوانده‌نشده از مشتریان مینی‌اپ`,detail:"در «سفارش‌های مینی‌اپ ← گفتگوها» پاسخ دهید"});
+    if(nc>0)notifs.push({icon:"💬",color:"#38bdf8",level:"attention",category:"سفارش‌ها",tab:"miniapp-orders",text:`${nc.toLocaleString("fa-IR")} پیام خوانده‌نشده از مشتریان مینی‌اپ`,detail:"در «آنلاین شاپ ← گفتگوها» پاسخ دهید"});
   }catch{}
   try{
     const accounts=JSON.parse(localStorage.getItem("cafenet_ledger2")||"[]");
