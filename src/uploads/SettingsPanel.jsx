@@ -42,7 +42,7 @@ export default function SettingsPanel({ settings, onSaved }) {
   return (
     <div style={card} data-testid="up-settings">
       <b style={{ fontSize: 14 }}>تنظیمات دریافت فایل</b>
-      <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13 }}><input type="checkbox" checked={f.enabled} onChange={(e) => setF({ ...f, enabled: e.target.checked })} />دریافت فایل از مشتری فعال باشد</label>
+      <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13 }}><input type="checkbox" checked={f.enabled} onChange={(e) => setF({ ...f, enabled: e.target.checked })} />دریافت فایل از مشتری (QR) فعال باشد</label>
       <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13 }}><input type="checkbox" checked={f.requirePhone} onChange={(e) => setF({ ...f, requirePhone: e.target.checked })} />شمارهٔ موبایل مشتری اجباری باشد</label>
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
         <label style={lab}>حداکثر حجم هر فایل (مگابایت)<input inputMode="numeric" value={f.maxFileMb} onChange={num("maxFileMb", 1, 100)} style={INP} /></label>

@@ -11,7 +11,7 @@ test("منوی فروشگاه: گروه با چهار زیرمنو به‌ترت
   const g = E.NAV_TREE.find((n) => n.group === "shop");
   assert.equal(g.label, "فروشگاه");
   assert.deepEqual(g.keys, ["shop-all", "shop-services", "shop-inperson", "shop-online", "miniapp-orders", "pos", "topup", "printscan"]);
-  assert.deepEqual(g.keys.map((k) => tab(k).label), ["فروش یکپارچه", "فروش خدمات", "فروش حضوری", "فروش آنلاین", "سفارش‌های مینی‌اپ", "صندوق", "فروش شارژ و اینترنت", "فروش کپی و اسکن"]);
+  assert.deepEqual(g.keys.map((k) => tab(k).label), ["فروش یکپارچه", "فروش خدمات", "فروش حضوری", "فروش آنلاین", "آنلاین شاپ", "صندوق", "فروش شارژ و اینترنت", "فروش کپی و اسکن"]);
   for (const k of g.keys.slice(0, 4)) { assert.ok(tab(k).saleMode, k + " باید saleMode داشته باشد"); assert.ok(E.SALE_MODES[tab(k).saleMode], k); }
   for (const k of g.keys.slice(4)) assert.ok(!tab(k).saleMode, k + " صفحهٔ واقعی است، نه حالت فروش");
   assert.ok(E.NAV_TREE.findIndex((n) => n.group === "shop") < E.NAV_TREE.findIndex((n) => n.group === "accounting"), "فروشگاه پیش از حسابداری است");

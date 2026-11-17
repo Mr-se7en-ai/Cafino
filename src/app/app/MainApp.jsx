@@ -39,7 +39,7 @@ import { BackupModal, BackupSettingsPanel, PrivacyPanel } from "../pages/backupU
 import { EventCalendar } from "../pages/calendar.jsx";
 import { BarChart, LineChart, MonthlyIncomeChart } from "../components/charts.jsx";
 import { receiveCustomerPayment } from "../domain/club.js";
-import { AI_UNIT_KEY, BOTTOM_NAV, BTN, COST_CATEGORY, CURRENCY_KEY, CUSTOMERS_STORAGE_KEY, DEFAULT_CATS, DEFAULT_INVENTORY, DEFAULT_TARIFF_DATA, INP, INV_STORAGE_KEY, JM, NAV_TREE, TABS, TARIFF_STORAGE_KEY, TX_KEY, isRealCashTx, txMethod } from "../core/constants.js";
+import { AI_UNIT_KEY, BOTTOM_NAV, FEATURED_GRADIENT, BTN, COST_CATEGORY, CURRENCY_KEY, CUSTOMERS_STORAGE_KEY, DEFAULT_CATS, DEFAULT_INVENTORY, DEFAULT_TARIFF_DATA, INP, INV_STORAGE_KEY, JM, NAV_TREE, TABS, TARIFF_STORAGE_KEY, TX_KEY, isRealCashTx, txMethod } from "../core/constants.js";
 import { DateConverterSection, JalaliPicker, SearchableSelect } from "../components/controls.jsx";
 import { CustomersSection } from "../pages/customers.jsx";
 import { ManagementDashboard } from "../pages/dashboard.jsx";
@@ -509,8 +509,12 @@ export function MainApp({onLogout,theme,setTheme,customFont,setCustomFont,userEm
           <button onClick={()=>setQuickServiceOpen(true)} title="سیستم فروش یکپارچه" style={{...BTN("linear-gradient(135deg,#7c3aed,#a855f7)","#fff"),display:"flex",alignItems:"center",justifyContent:"center",gap:8,padding:isCompact?"11px 0":"11px 12px",marginBottom:16,fontSize:13,width:"100%"}}>
             <Icon name="Plus" size={18}/>{!isCompact&&<span>فروش یکپارچه</span>}
           </button>
+          {navTree.filter(n=>n.featured).map(n=>{const t=TABS.find(x=>x.key===n.key);if(!t)return null;const on=activeTab===t.key;return(
+            <button key={t.key} data-testid={`nav-${t.key}`} data-featured="1" className={on?"tab-active":""} onClick={()=>selectTab(t.key)} title={t.label} style={{...BTN(FEATURED_GRADIENT[t.key]||"linear-gradient(135deg,#0f766e,#14b8a6)","#fff"),position:"relative",display:"flex",alignItems:"center",justifyContent:"center",gap:8,padding:isCompact?"11px 0":"11px 12px",marginTop:-6,marginBottom:16,fontSize:13,width:"100%",boxShadow:on?"0 0 0 2px #fff6, 0 4px 14px #0f766e66":"none"}}>
+              <Icon name={t.icon} size={18}/>{!isCompact&&<span>{t.label}</span>}{t.key==="uploads"&&<UploadsBadge style={isCompact?{position:"absolute",top:2,left:4,minWidth:14,height:14,fontSize:9}:{position:"absolute",top:"50%",left:10,transform:"translateY(-50%)"}}/>}
+            </button>);})}
           <div data-testid="side-nav" style={{display:"flex",flexDirection:"column",gap:2,marginBottom:12}}>
-            {navTree.map(n=>{
+            {navTree.filter(n=>!n.featured).map(n=>{
               const navBtn=(t,sub)=>{
                 const on=tabOn(t);
                 return(
@@ -1060,7 +1064,7 @@ export function MainApp({onLogout,theme,setTheme,customFont,setCustomFont,userEm
                   {sc.label&&<div style={{fontSize:11,fontWeight:700,color:"var(--text-dim)",margin:"4px 4px 8px"}}>{sc.label}</div>}
                   <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}}>
                     {items.map(t=>{const on=tabOn(t);return(
-                      <button key={t.key} className={on?"tab-active":""} data-testid={`mnav-${t.key}`} onClick={()=>selectTab(t.key)} style={{position:"relative",background:on?navActiveBg:"var(--bg-app)",border:on?"1px solid #60a5fa":"1px solid var(--border)",borderRadius:12,padding:"14px 4px",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:7,color:on?navActiveFg:"var(--text-secondary)",fontSize:12,fontWeight:on?700:500,fontFamily:"inherit"}}>
+                      <button key={t.key} className={on?"tab-active":""} data-testid={`mnav-${t.key}`} onClick={()=>selectTab(t.key)} style={{position:"relative",background:on?navActiveBg:FEATURED_GRADIENT[t.key]||"var(--bg-app)",border:on?"1px solid #60a5fa":FEATURED_GRADIENT[t.key]?"1px solid transparent":"1px solid var(--border)",borderRadius:12,padding:"14px 4px",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:7,color:on?navActiveFg:FEATURED_GRADIENT[t.key]?"#fff":"var(--text-secondary)",fontSize:12,fontWeight:on?700:500,fontFamily:"inherit"}}>
                         <Icon name={t.icon} size={22}/><span>{t.label}</span>{t.key==="inbox"&&<InboxBadge style={{position:"absolute",top:6,left:8}}/>}{t.key==="miniapp-orders"&&<MiniReqBadge style={{position:"absolute",top:6,left:8}}/>}{t.key==="uploads"&&<UploadsBadge style={{position:"absolute",top:6,left:8}}/>}
                       </button>);})}
                   </div>

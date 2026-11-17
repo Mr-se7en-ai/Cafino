@@ -61,7 +61,7 @@ test("برند: آیکن پیش‌فرض و لوگوی کامل از فایل‌
 
 test("ثبت: تب uploads در TABS، NAV_TREE (مدیریت) و MainApp؛ وضعیت‌ها با سرور یکی است", () => {
   const c = read("../app/core/constants.js"), m = read("../app/app/MainApp.jsx"), srv = read("../../server/src/routes/uploads.js");
-  assert.match(c, /key:"uploads",icon:"QrCode",label:"دریافت فایل از مشتری"/); assert.match(c, /group:"manage"[^\n]*"uploads"/);
+  assert.match(c, /key:"uploads",icon:"FolderOpen",label:"مدیریت فایل"/); assert.match(c, /\{key:"uploads",featured:true\}/); assert.doesNotMatch(c, /group:"manage"[^\n]*"uploads"/);
   assert.match(m, /activeTab==="uploads"&&<UploadsPage\/>/);
   assert.match(read("../components/Icon.jsx"), /QrCode/);
   const sv = srv.match(/STATUSES = \[([^\]]+)\]/); assert.ok(sv);

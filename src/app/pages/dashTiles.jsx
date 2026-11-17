@@ -12,7 +12,7 @@ import { lsRead, lsWrite, useDataSync } from "../domain/sales.jsx";
 // ══════════════════════════════════════════════════════════════════
 const TILES_KEY="cafenet_dash_tiles";
 
-const TILES_VER=2;
+const TILES_VER=3;
 
 const TILE_SIZES={s:{c:2,r:1,label:"کوچک"},m:{c:2,r:2,label:"متوسط"},l:{c:4,r:2,label:"بزرگ"}};
 
@@ -44,11 +44,13 @@ const TILE_CATALOG=[
   {id:"tariff",label:"تعرفه",icon:"Tags",color:"#0891b2",go:{tab:"tariff"}},
   {id:"links",label:"لینک‌های کاربردی",icon:"Link2",color:"#4338ca",go:{tab:"links"}},
   {id:"dateconv",label:"تبدیل تاریخ",icon:"CalendarDays",color:"#9333ea",go:{tab:"dateconv"}},
+  {id:"onlineshop",tid:"qa-onlineshop",label:"آنلاین شاپ",icon:"ShoppingBag",color:"#0d9488",go:{tab:"miniapp-orders"},live:c=>({big:c.mini?c.mini.big:"—",sub:c.mini?c.mini.sub:""})},
+  {id:"filemanager",tid:"qa-filemanager",label:"مدیریت فایل",icon:"FolderOpen",color:"#0f766e",go:{tab:"uploads"},live:c=>({big:toFA(c.uploadsNew||0),sub:"فایل تازه از مشتری"})},
   {id:"notes",label:"یادداشت و یادآوری",icon:"Bell",color:"#d97706",go:{tab:"notes"},live:c=>({big:toFA(c.reminders||0),sub:"یادآور باز"})},
   {id:"settings",label:"تنظیمات",icon:"Settings",color:"#374151",go:{tab:"settings"}},
 ];
 
-const TILE_DEFAULT_IDS=["sale","income","expense","pos","topup","product","order","invoice","customer","report"];
+const TILE_DEFAULT_IDS=["sale","income","expense","pos","topup","product","order","invoice","customer","report","onlineshop","filemanager"];
 
 function defaultTileLayout(){return{ver:TILES_VER,items:TILE_DEFAULT_IDS.map(id=>({id,size:id==="sale"?"l":"m"}))};}
 
@@ -59,6 +61,8 @@ function getTileLayout(){
   v.items.forEach(it=>{if(it&&TILE_CATALOG.some(t=>t.id===it.id)&&!seen.has(it.id)){seen.add(it.id);const sz=TILE_SIZE_LEGACY[it.size]||it.size;items.push({id:it.id,size:TILE_SIZES[sz]?sz:"m"});}});
   // نسخهٔ ۲: کاشی‌های «ثبت درآمد/هزینه» یک‌بار به چیدمان ذخیره‌شدهٔ قبلی اضافه می‌شوند
   if((v.ver||1)<2)["income","expense"].forEach(id=>{if(!seen.has(id))items.push({id,size:"m"});});
+  // نسخهٔ ۳ (1.85): کاشی‌های زندهٔ «آنلاین شاپ» و «مدیریت فایل» یک‌بار به چیدمان ذخیره‌شده اضافه می‌شوند
+  if((v.ver||1)<3)["onlineshop","filemanager"].forEach(id=>{if(!seen.has(id))items.push({id,size:"m"});});
   return{ver:TILES_VER,items};
 }
 

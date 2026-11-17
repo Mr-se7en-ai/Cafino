@@ -5,7 +5,7 @@ import {
   Calculator as CalculatorIcon, LogOut, PlusCircle, UserPlus, ClipboardPlus, Trash2, Plus,
   ChevronLeft, ChevronRight, CheckCircle2, Circle, Zap, ArrowRight, ArrowLeft, Pencil,
   Plug, RefreshCw, ShoppingCart, MoreHorizontal, Info, CalendarClock, Link2, CalendarDays,
-  Sparkles, Smartphone, ChevronDown, Wallet, Briefcase, AlertTriangle, ShieldCheck, Search, Activity, Megaphone, MessageSquare, Send, Lock, Paperclip, Store, Layers, Wrench, Globe, LayoutGrid, Download, Upload, X, Check, FileSpreadsheet, RotateCcw, Eye, Copy, Filter, Ban, QrCode, Newspaper,
+  ShoppingBag, FolderOpen, Sparkles, Smartphone, ChevronDown, Wallet, Briefcase, AlertTriangle, ShieldCheck, Search, Activity, Megaphone, MessageSquare, Send, Lock, Paperclip, Store, Layers, Wrench, Globe, LayoutGrid, Download, Upload, X, Check, FileSpreadsheet, RotateCcw, Eye, Copy, Filter, Ban, QrCode, Newspaper,
 } from "lucide-react";
 
 export const ICONS = {
@@ -14,7 +14,7 @@ export const ICONS = {
   Calculator: CalculatorIcon, LogOut, PlusCircle, UserPlus, ClipboardPlus, Trash2, Plus,
   ChevronLeft, ChevronRight, CheckCircle2, Circle, Zap, ArrowRight, ArrowLeft, Pencil,
   Plug, RefreshCw, ShoppingCart, MoreHorizontal, Info, CalendarClock, Link2, CalendarDays,
-  Sparkles, Smartphone, ChevronDown, Wallet, Briefcase, AlertTriangle, ShieldCheck, Search, Activity, Megaphone, MessageSquare, Send, Lock, Paperclip, Store, Layers, Wrench, Globe, LayoutGrid, Download, Upload, X, Check, FileSpreadsheet, RotateCcw, Eye, Copy, Filter, Ban, QrCode, Newspaper,
+  ShoppingBag, FolderOpen, Sparkles, Smartphone, ChevronDown, Wallet, Briefcase, AlertTriangle, ShieldCheck, Search, Activity, Megaphone, MessageSquare, Send, Lock, Paperclip, Store, Layers, Wrench, Globe, LayoutGrid, Download, Upload, X, Check, FileSpreadsheet, RotateCcw, Eye, Copy, Filter, Ban, QrCode, Newspaper,
 };
 
 export default function Icon({ name, size = 18, style, ...rest }) {
