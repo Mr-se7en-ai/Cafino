@@ -46,9 +46,21 @@ export async function signSession(cfg, { telegramId, cafeId }) {
 export async function verifySession(cfg, token) {
   try {
     const { payload } = await jwtVerify(token, keyOf(cfg), { issuer: ISS, audience: AUD, algorithms: ["HS256"] });
-    if (!/^\d{1,15}$/.test(String(payload.sub))) return null;
+    if (!/^\d{1,16}$/.test(String(payload.sub))) return null;     // 1.86: شناسهٔ مصنوعی ربات اختصاصی ۱۶ رقمی است
     return { telegramId: Number(payload.sub), cafeId: payload.cid || null };
   } catch { return null; }
+}
+
+// ── هویت محدود به کافی‌نت (1.86): کاربر ربات اختصاصی یک شناسهٔ مصنوعی (≥ 10^15) می‌گیرد؛ جعل امضا با توکنِ یک کافی‌نت
+// هرگز به هویت واقعی تلگرام یا کافی‌نت دیگر نمی‌رسد. (cafe, provider, raw_id) → telegram_id مصنوعی، یکتا و ثابت.
+export async function resolveIdentity(pool, cafeId, provider, rawId) {
+  const q = "SELECT telegram_id FROM miniapp_identities WHERE cafe_id=$1 AND provider=$2 AND raw_id=$3";
+  let r = await pool.query(q, [cafeId, provider, rawId]);
+  if (!r.rows[0]) {
+    await pool.query("INSERT INTO miniapp_identities (cafe_id, provider, raw_id, telegram_id) VALUES ($1,$2,$3,nextval('miniapp_synth_id_seq')) ON CONFLICT DO NOTHING", [cafeId, provider, rawId]);
+    r = await pool.query(q, [cafeId, provider, rawId]);
+  }
+  return Number(r.rows[0].telegram_id);
 }
 
 // ── شمارهٔ موبایل ایران: ارقام فارسی/عربی → لاتین؛ 0098/+98/98/0 حذف؛ نتیجه ۱۰ رقم (9xxxxxxxxx) یا "" ──────────────────────────

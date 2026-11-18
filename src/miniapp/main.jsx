@@ -167,14 +167,14 @@ function Gate({ api, info, onPick, onLinked, tg }) {
     {info.staff ? <button className="card gate" data-testid="gate-staff" onClick={() => onPick("staff")}><b>ورود به حساب کافی‌نت</b><span className="hint">{info.staff.name} — {info.staff.cafeName}</span></button>
       : !showLink ? <button className="card gate" data-testid="gate-staff" onClick={() => setShowLink(true)}><b>ورود به حساب کافی‌نت</b><span className="hint">برای مالک و کارمندان؛ با کد اتصال از برنامه</span></button>
       : <StaffGate api={api} info={info} onLinked={onLinked} />}
-    {!tg.hasSdk && <p className="hint center">برای بهترین تجربه از داخل تلگرام باز کنید.</p>}</div>;
+    {!tg.hasSdk && <p className="hint center">برای بهترین تجربه از داخل تلگرام یا بله باز کنید.</p>}</div>;
 }
 
 function App({ tg }) {
   const api = useMemo(() => createApi({ initData: tg.initData, cafe: tg.cafe }), [tg]);
   const [boot, setBoot] = useState({ state: "loading" }), [mode, setMode] = useState(""), [tab, setTab] = useState("home"), [bump, setBump] = useState(0), [newRequest, setNewRequest] = useState(null), [cart, setCart] = useState({}), [cartOpen, setCartOpen] = useState(false), [unread, setUnread] = useState(0);
   const start = useCallback(() => {
-    if (!tg.initData) return setBoot({ state: "error", error: new Error("این صفحه باید از داخل تلگرام باز شود.") });
+    if (!tg.initData) return setBoot({ state: "error", error: new Error("این صفحه باید از داخل تلگرام یا بله باز شود.") });
     setBoot({ state: "loading" });
     api.login().then((d) => {
       setBoot({ state: "ready", info: d });

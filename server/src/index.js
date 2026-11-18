@@ -39,5 +39,7 @@ process.on("SIGINT", () => shutdown("SIGINT"));
 process.on("unhandledRejection", (e) => { app.log.error({ err: e }, "unhandledRejection"); });
 
 await app.listen({ port: cfg.port, host: cfg.host });
-app.miniappBot.start();   // ربات مشترک مینی‌اپ تلگرام (بدون MINIAPP_BOT_TOKEN خاموش است)
+app.miniappBot.start();
+app.miniappCafeBots.start();   // ربات‌های مینی‌اپ اختصاصی کافی‌نت‌ها (بدون ردیف، کاری نمی‌کند)
+   // ربات مشترک مینی‌اپ تلگرام (بدون MINIAPP_BOT_TOKEN خاموش است)
 app.bots.start();   // گزارش‌های زمان‌بندی‌شده و فرمان‌های ربات بله/تلگرام (BOTS_ENABLED=false → خاموش)

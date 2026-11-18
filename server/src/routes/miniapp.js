@@ -13,11 +13,13 @@ import { HttpError, forbidden, invalid, unauthorized } from "../lib/errors.js";
 import { generateCode } from "../lib/uploads.js";
 import { cleanCard, cleanLine } from "../lib/miniappShop.js";
 import { registerMiniappStaff } from "./miniappStaff.js";
-import { MiniappAuthError, codeFromPayload, phoneLikePatterns, samePhone, sanitizeTariff, signSession, tariffHash, verifyInitData, verifySession } from "../lib/miniapp.js";
+import { decryptToken } from "../lib/bots.js";
+import { aadOf } from "../lib/miniappCafeBots.js";
+import { MiniappAuthError, codeFromPayload, phoneLikePatterns, resolveIdentity, samePhone, sanitizeTariff, signSession, tariffHash, verifyInitData, verifySession } from "../lib/miniapp.js";
 
-const SHELL_CSP = ["default-src 'none'", "script-src 'self' https://telegram.org", "style-src 'self'", "style-src-attr 'unsafe-inline'", "img-src 'self' data:", "font-src 'self'", "connect-src 'self'",
-  "base-uri 'none'", "form-action 'none'", "object-src 'none'", "frame-ancestors https://web.telegram.org https://webk.telegram.org https://webz.telegram.org https://*.telegram.org https://*.t.me"].join("; ");
-const SHELL_HTML = `<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="robots" content="noindex,nofollow"><meta name="color-scheme" content="light dark"><title>کافینو</title><link rel="stylesheet" href="/m/assets/app.css"><script src="https://telegram.org/js/telegram-web-app.js"></script></head><body><div id="root"></div><script src="/m/assets/app.js" defer></script></body></html>`;
+const SHELL_CSP = ["default-src 'none'", "script-src 'self' https://telegram.org https://tapi.bale.ai", "style-src 'self'", "style-src-attr 'unsafe-inline'", "img-src 'self' data:", "font-src 'self'", "connect-src 'self'",
+  "base-uri 'none'", "form-action 'none'", "object-src 'none'", "frame-ancestors https://web.telegram.org https://webk.telegram.org https://webz.telegram.org https://*.telegram.org https://*.t.me https://*.bale.ai https://*.ble.ir"].join("; ");
+const SHELL_HTML = `<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="robots" content="noindex,nofollow"><meta name="color-scheme" content="light dark"><title>کافینو</title><link rel="stylesheet" href="/m/assets/app.css"><script src="https://telegram.org/js/telegram-web-app.js"></script><script src="https://tapi.bale.ai/miniapp.js?3"></script></head><body><div id="root"></div><script src="/m/assets/app.js" defer></script></body></html>`;
 const ASSETS = {
   "app.js": ["application/javascript; charset=utf-8", "../assets/miniapp/app.js"], "app.css": ["text/css; charset=utf-8", "../assets/miniapp/app.css"],
   "vazirmatn-400.woff2": ["font/woff2", "../assets/fonts/Vazirmatn-Regular.woff2"], "vazirmatn-700.woff2": ["font/woff2", "../assets/fonts/Vazirmatn-Bold.woff2"],
@@ -72,18 +74,36 @@ export async function registerMiniapp(app, bot) {
     return { customerId: m[0].id, name: fullName(m[0]) };
   }
 
+  /** نام کاربری رباتی که این کاربر با آن آمده: هویت مصنوعی ← ربات اختصاصیِ همان کافی‌نت؛ وگرنه ربات مشترک. */
+  const botUserOf = async (tgId) => {
+    if (Number(tgId) >= 1e15) return (await pool.query("SELECT b.bot_username FROM miniapp_identities i JOIN miniapp_cafe_bots b ON b.cafe_id=i.cafe_id AND b.provider=i.provider WHERE i.telegram_id=$1", [tgId])).rows[0]?.bot_username || "";
+    return bot.info()?.username || "";
+  };
+
   // ── احراز هویت: امضای تلگرام ← توکن مینی‌اپ ─────────────────────────────────────────────────────────────────────
   app.post("/api/miniapp/auth", { config: { rateLimit: { max: cfg.miniappAuthRatePerMin, timeWindow: "1 minute" } } }, async (req, reply) => {
-    if (!bot.enabled()) throw new HttpError(503, "miniapp_disabled", "مینی‌اپ در این سرور فعال نیست");
     const body = req.body && typeof req.body === "object" ? req.body : {};
-    let v;
-    try { v = verifyInitData(body.initData, cfg.miniappToken, { maxAgeSec: cfg.miniappAuthMaxAgeSec }); }
-    catch (e) { if (e instanceof MiniappAuthError) throw new HttpError(401, e.code, e.message); throw e; }
+    // نامزدهای امضا: ربات(های) اختصاصیِ همان کافی‌نت (بر پایهٔ کد کافی‌نت در نشانی) و سپس ربات مشترک. امضایی که با توکن یک کافی‌نت درست
+    // درآید فقط «هویتِ مصنوعیِ همان کافی‌نت» می‌سازد و نشست همان کافی‌نت می‌شود (جعل با توکنِ صاحب ربات به کافی‌نت دیگر/هویت واقعی نمی‌رسد).
+    const hint = codeFromPayload(body.cafe), cands = [];
+    if (hint) {
+      const own = (await pool.query("SELECT b.cafe_id, b.provider, b.token_enc FROM miniapp_cafe_bots b JOIN upload_settings s ON s.cafe_id=b.cafe_id WHERE s.code=$1 AND b.enabled ORDER BY b.provider", [hint])).rows;
+      for (const o of own) { try { cands.push({ token: decryptToken(cfg, o.token_enc, aadOf(o.cafe_id, o.provider)), cafeId: o.cafe_id, provider: o.provider }); } catch { /* توکن ناخوانا: نادیده */ } }
+    }
+    if (cfg.miniappToken) cands.push({ token: cfg.miniappToken, cafeId: null, provider: "telegram" });
+    if (!cands.length) throw new HttpError(503, "miniapp_disabled", "مینی‌اپ در این سرور فعال نیست");
+    let v = null, via = null, err = null;
+    for (const c of cands) {
+      try { v = verifyInitData(body.initData, c.token, { maxAgeSec: cfg.miniappAuthMaxAgeSec }); via = c; break; }
+      catch (e) { if (!(e instanceof MiniappAuthError)) throw e; if (!err || (err.code === "bad_signature" && e.code !== "bad_signature")) err = e; }
+    }
+    if (!v) throw new HttpError(401, err.code, err.message);
+    const tid = via.cafeId ? await resolveIdentity(pool, via.cafeId, via.provider, v.user.id) : v.user.id;
     const u = (await pool.query(
       `INSERT INTO telegram_users (telegram_id, first_name, last_name, username, language) VALUES ($1,$2,$3,$4,$5)
        ON CONFLICT (telegram_id) DO UPDATE SET first_name=EXCLUDED.first_name, last_name=EXCLUDED.last_name, username=EXCLUDED.username, language=EXCLUDED.language, updated_at=now() RETURNING *`,
-      [v.user.id, v.user.firstName, v.user.lastName, v.user.username, v.user.language])).rows[0];
-    const code = codeFromPayload(body.cafe) || codeFromPayload(v.startParam);
+      [tid, v.user.firstName, v.user.lastName, v.user.username, v.user.language])).rows[0];
+    const code = via.cafeId ? hint : (hint || codeFromPayload(v.startParam));
     let row = null, problem = "";
     if (code) {
       row = (await pool.query(`${CAFE_SQL} WHERE s.code = $1`, [code])).rows[0] || null;
@@ -96,7 +116,7 @@ export async function registerMiniapp(app, bot) {
     const token = await signSession(cfg, { telegramId: u.telegram_id, cafeId: row?.cafe_id || null });
     reply.header("cache-control", "no-store");
     const staff = await h.staffOf(u.telegram_id);
-    return { data: { token, expiresIn: cfg.miniappSessionTtlSec, problem, staff, cafe: cafeView(row), user: { firstName: u.first_name }, phoneVerified: !!u.phone_verified_at, botUsername: bot.info()?.username || "" } };
+    return { data: { token, expiresIn: cfg.miniappSessionTtlSec, problem, staff, cafe: cafeView(row), user: { firstName: u.first_name }, phoneVerified: !!u.phone_verified_at, botUsername: await botUserOf(u.telegram_id) } };
   });
 
   // ── نشست مینی‌اپ ────────────────────────────────────────────────────────────────────────────────────────────────
@@ -121,7 +141,7 @@ export async function registerMiniapp(app, bot) {
 
   app.get("/api/miniapp/me", mini, async (req, reply) => {
     const cafe = needCafe(req), link = await linkOf(req);
-    return ok(reply, { cafe: cafeView(cafe), user: { firstName: req.mini.tg.first_name }, phoneVerified: !!req.mini.tg.phone_verified_at, linked: link && link.customerId ? { name: link.name } : null, ambiguous: !!link?.ambiguous, botUsername: bot.info()?.username || "" });
+    return ok(reply, { cafe: cafeView(cafe), user: { firstName: req.mini.tg.first_name }, phoneVerified: !!req.mini.tg.phone_verified_at, linked: link && link.customerId ? { name: link.name } : null, ambiguous: !!link?.ambiguous, botUsername: await botUserOf(req.mini.tg.telegram_id) });
   });
 
   const stageOfUpload = (n) => Math.max(0, Math.min(3, Number(n)));
@@ -201,7 +221,10 @@ export async function registerMiniapp(app, bot) {
     const sp = (await pool.query("SELECT pay_cash_enabled, pay_card_enabled, pay_card_number, pay_card_holder, pay_bank FROM upload_settings WHERE cafe_id=$1", [req.user.cafeId])).rows[0];
     let botUsername = bot.info()?.username || "";
     if (!botUsername) botUsername = (await pool.query("SELECT bot_username FROM miniapp_bot_state WHERE id=1")).rows[0]?.bot_username || "";
-    return { data: { serverEnabled: bot.enabled(), botUsername, hasCode: !!s, enabled: s ? s.miniapp_enabled : true, link: s && botUsername ? `https://t.me/${botUsername}?start=c_${s.code}` : "", linkedCustomers: linked,
+    const ownBots = (await pool.query("SELECT provider, bot_username FROM miniapp_cafe_bots WHERE cafe_id=$1 AND enabled AND bot_username <> '' ORDER BY provider DESC", [req.user.cafeId])).rows
+      .map((b) => ({ provider: b.provider, botUsername: b.bot_username, link: b.provider === "bale" ? `https://ble.ir/${b.bot_username}` : `https://t.me/${b.bot_username}?start=c_${s?.code || ""}` }));
+    const sharedLink = s && botUsername ? `https://t.me/${botUsername}?start=c_${s.code}` : "";
+    return { data: { serverEnabled: bot.enabled() || (!!cfg.miniappUrl && ownBots.length > 0), botUsername, hasCode: !!s, enabled: s ? s.miniapp_enabled : true, link: ownBots[0]?.link || sharedLink, sharedLink, ownBots, linkedCustomers: linked,
       tariff: t ? { hash: t.hash, updatedAt: iso(t.updated_at), groups: t.groups } : null, pay: payView(sp) } };
   });
   app.patch("/api/miniapp/settings", manage, async (req) => {

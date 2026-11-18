@@ -1,13 +1,16 @@
-// تنظیمات ← «اتصال»: ربات بله، ربات تلگرام و هوش مصنوعی در یک جا (زیرتب‌ها).
+// تنظیمات ← «اتصال»: ربات بله، ربات تلگرام، مینی‌اپ تلگرام/بله (ربات اختصاصی کافی‌نت، 1.86) و هوش مصنوعی در یک جا (زیرتب‌ها).
 import React from "react";
 import Icon from "../../components/Icon.jsx";
 import { BTN } from "../core/constants.js";
 import BotsPage from "../../bots/BotsPage.jsx";
+import MiniappBotPage from "../../uploads/MiniappBotPage.jsx";
 import { AiAgentPanel } from "./aiAgent.jsx";
 
 export const CONNECTION_TABS = [
   { key: "bale", label: "ربات بله", icon: "Send" },
   { key: "telegram", label: "ربات تلگرام", icon: "Send" },
+  { key: "mini-telegram", label: "مینی‌اپ تلگرام", icon: "ShoppingBag" },    // 1.86: ربات مینی‌اپ اختصاصی هر کافی‌نت
+  { key: "mini-bale", label: "مینی‌اپ بله", icon: "ShoppingBag" },
   { key: "ai", label: "هوش مصنوعی", icon: "Sparkles" },
 ];
 export const normConnSub = (k) => (CONNECTION_TABS.some((t) => t.key === k) ? k : "bale");
@@ -23,7 +26,7 @@ export default function ConnectionsPanel({ sub, setSub }) {
           </button>
         ))}
       </div>
-      {cur === "ai" ? <AiAgentPanel /> : <BotsPage key={cur} provider={cur} />}
+      {cur === "ai" ? <AiAgentPanel /> : cur.startsWith("mini-") ? <MiniappBotPage key={cur} provider={cur.slice(5)} /> : <BotsPage key={cur} provider={cur} />}
     </div>
   );
 }
