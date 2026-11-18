@@ -1,10 +1,13 @@
-// پل تلگرام: SDK رسمی (window.Telegram.WebApp) یا — اگر telegram.org در دسترس نبود — خواندن initData از hash نشانی.
+// پل تلگرام/بله: SDK رسمی (window.Telegram.WebApp) یا — اگر telegram.org در دسترس نبود — خواندن initData از hash نشانی.
 // initDataUnsafe هرگز برای تصمیم‌گیری استفاده نمی‌شود؛ فقط رشتهٔ امضاشدهٔ initData به سرور می‌رود.
 export function readHashParams(hash) {
   try { return new URLSearchParams(String(hash || "").replace(/^#/, "")); } catch { return new URLSearchParams(); }
 }
 export function getTg(win = typeof window !== "undefined" ? window : {}) {
-  const sdk = win.Telegram && win.Telegram.WebApp;
+  // 1.86: بله هم مینی‌اپ دارد؛ SDK آن (window.Bale.WebApp) با همان شکل کار می‌کند — «اولین SDKی که initData دارد» انتخاب می‌شود.
+  // (نام سراسری بله از اینجا راستی‌آزمایی نشد؛ اگر نبود، همان hash نشانی خوانده می‌شود.)
+  const cands = [win.Telegram && win.Telegram.WebApp, win.Bale && win.Bale.WebApp].filter(Boolean);
+  const sdk = cands.find((x) => x.initData) || cands[0];
   const hp = readHashParams(win.location && win.location.hash);
   const initData = (sdk && sdk.initData) || hp.get("tgWebAppData") || "";
   const q = win.location && win.location.search ? new URLSearchParams(win.location.search) : new URLSearchParams();

@@ -100,7 +100,7 @@ await p.screenshot({ path: SHOT + "-auditfin.png" });
 await p.goto(base + "/?tab=settings"); await p.waitForSelector('[data-testid="settings-tab-connections"]', { timeout: 30000 });
 ok((await p.locator('[data-testid="settings-tab-ai"]').count()) === 0, "the standalone «هوش مصنوعی» settings tab moved under «اتصال»");
 await p.click('[data-testid="settings-tab-connections"]'); await p.waitForSelector('[data-testid="connections-panel"]');
-ok((await p.locator('[data-testid^="conn-tab-"]').count()) === 3, "three sub-tabs: ربات بله، ربات تلگرام، هوش مصنوعی");
+ok((await p.locator('[data-testid^="conn-tab-"]').count()) === 5, "five sub-tabs: ربات بله، ربات تلگرام، مینی‌اپ تلگرام، مینی‌اپ بله، هوش مصنوعی (1.86)");
 await p.waitForTimeout(1200);
 const bale = await p.textContent('[data-testid="connections-panel"]'); ok(/بله/.test(bale), "ربات بله sub-tab shows the Bale bot");
 await p.click('[data-testid="conn-tab-telegram"]'); await p.waitForTimeout(1200);

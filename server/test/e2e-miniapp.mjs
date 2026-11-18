@@ -45,6 +45,7 @@ try {
   const open = async (scheme, hash, { sdkOn = true, withCafe = true } = {}) => {
     const ctxb = await browser.newContext({ viewport: { width: 390, height: 780 }, deviceScaleFactor: 2, locale: "fa-IR", colorScheme: scheme });
     const page = await ctxb.newPage(), errors = []; page.on("pageerror", (e) => errors.push(String(e))); page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
+    await page.route("https://tapi.bale.ai/**", (r) => r.fulfill({ contentType: "application/javascript", body: "" }));   // SDK بله (1.86): شبکه بسته است
     await page.route("https://telegram.org/**", (r) => (sdkOn ? r.fulfill({ contentType: "application/javascript", body: sdk() }) : r.abort()));
     await page.route("**/__verify", async (r) => { await ctx.pool.query("UPDATE telegram_users SET phone='9123334455', phone_verified_at=now() WHERE telegram_id=9001"); r.fulfill({ body: "ok" }); });   // «ربات» پس از ارسال مخاطب شماره را تأیید می‌کند
     await page.addInitScript((s) => { window.__scheme = s; }, scheme);
@@ -104,7 +105,7 @@ try {
   t = await open("light", sign(user, "999:other_token_not_ours"));
   await t.page.waitForSelector("[role=alert]"); must((await t.page.locator("[role=alert]").innerText()).includes("امضای تلگرام"), "initData با توکن دیگر رد می‌شود");
   await t.page.screenshot({ path: path.join(SHOTS, "08-bad-signature.png") }); await t.ctxb.close();
-  const ctxc = await browser.newContext(), pg = await ctxc.newPage(); await pg.route("https://telegram.org/**", (r) => r.abort());
+  const ctxc = await browser.newContext(), pg = await ctxc.newPage(); await pg.route("https://telegram.org/**", (r) => r.abort()); await pg.route("https://tapi.bale.ai/**", (r) => r.fulfill({ contentType: "application/javascript", body: "" }));
   await pg.goto(`${base}/m`, { waitUntil: "networkidle" }); await pg.waitForSelector("[role=alert]");
   must((await pg.locator("[role=alert]").innerText()).includes("داخل تلگرام"), "بدون initData (مرورگر معمولی) پیام «از داخل تلگرام باز کنید»"); await ctxc.close();
   const t2 = await open("light", init); await t2.page.goto(`${base}/m?c=zzzzzzzzzzzzzzzz#tgWebAppData=${encodeURIComponent(init)}`); await t2.page.waitForSelector("text=لینک کافی‌نت معتبر نیست"); must(true, "کد کافی‌نت نامعتبر → پیام مناسب"); await t2.ctxb.close();

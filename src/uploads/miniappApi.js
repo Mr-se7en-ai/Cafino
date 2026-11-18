@@ -21,6 +21,12 @@ export const miniapp = {
   chats: () => apiRequest("/api/miniapp/chats-admin"),                                                                // {items:[{telegramId,name,phone,last,unread}], unread}
   chatThread: (tg, after = 0) => apiRequest(`/api/miniapp/chats-admin/${encodeURIComponent(tg)}${after ? `?after=${Number(after)}` : ""}`),
   sendChat: (tg, body) => apiRequest(`/api/miniapp/chats-admin/${encodeURIComponent(tg)}`, { method: "POST", body: { body } }),
+  // ── 1.86: ربات مینی‌اپ اختصاصی هر کافی‌نت (تلگرام/بله) ──
+  cafeBots: () => apiRequest("/api/miniapp/cafe-bots"),                                                                // {providers:[{provider,label,connected,botUsername,tokenHint,enabled,botLink,startLink,lastError…}], serverReady, httpsOk}
+  connectCafeBot: (provider, token) => apiRequest(`/api/miniapp/cafe-bots/${encodeURIComponent(provider)}`, { method: "PUT", body: { token } }),
+  setCafeBot: (provider, enabled) => apiRequest(`/api/miniapp/cafe-bots/${encodeURIComponent(provider)}`, { method: "PATCH", body: { enabled: !!enabled } }),
+  checkCafeBot: (provider) => apiRequest(`/api/miniapp/cafe-bots/${encodeURIComponent(provider)}/check`, { method: "POST", body: {} }),
+  removeCafeBot: (provider) => apiRequest(`/api/miniapp/cafe-bots/${encodeURIComponent(provider)}`, { method: "DELETE" }),
   orderActions: () => apiRequest("/api/miniapp/order-actions"),                                                       // {items:[{id,orderId,status,by}]}
   ackOrderActions: (body) => apiRequest("/api/miniapp/order-actions/ack", { method: "POST", body }),                  // {applied:[ids], notFound:[ids]}
 };

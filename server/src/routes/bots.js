@@ -42,6 +42,7 @@ export async function registerBots(app, bots) {
     let me;
     try { me = await bots.api(provider, token, "getMe", {}); } catch (e) { if (e instanceof BotApiError) throw bad(e); throw e; }
     if (!me?.id) throw new HttpError(502, "bot_api_error", "پاسخ نامعتبر از پیام‌رسان");
+    if ((await pool.query("SELECT 1 FROM miniapp_cafe_bots WHERE provider=$1 AND bot_id=$2", [provider, String(me.id)])).rowCount) throw new HttpError(409, "bot_in_use", "این ربات برای «مینی‌اپ» به کار رفته؛ برای گزارش‌ها یک ربات جدا بسازید (هر ربات فقط یک کار)");
     // توکن‌های قدیمی را نادیده بگیر تا فرمان‌های پیش از اتصال بازپخش نشوند؛ وب‌هوکِ احتمالی حذف می‌شود (getUpdates با وب‌هوک کار نمی‌کند)
     let offset = 0;
     try { await bots.api(provider, token, "deleteWebhook", {}); } catch { /* همه‌ی API‌ها این متد را ندارند */ }

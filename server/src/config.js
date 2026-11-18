@@ -117,6 +117,7 @@ export function loadConfig(source = env) {
     miniappSessionTtlSec: Math.max(60, int(e.MINIAPP_SESSION_TTL_SEC, 3600)),
     miniappAuthRatePerMin: Math.max(5, int(e.MINIAPP_AUTH_RATE_PER_MIN, 30)),
     miniappPollIntervalMs: Math.max(1000, int(e.MINIAPP_POLL_INTERVAL_MS, 3000)),
+    miniappCafeBotsPerTick: Math.min(100, Math.max(1, int(e.MINIAPP_CAFE_BOTS_PER_TICK, 10))),   // ربات‌های اختصاصی کافی‌نت‌ها (1.86): در هر دور حداکثر چند ربات پرسش شوند
     referenceChecks: /^(off|false|0)$/i.test(String(e.REFERENCE_CHECKS || "")) ? "off" : "strict",   // strict: ارجاع به مشتری/فاکتور ناموجود رد می‌شود (یتیم‌ساز نیست)
   };
   const problems = [];
