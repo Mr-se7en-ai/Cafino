@@ -1,2 +1,8 @@
 src/tests/engine/.build/
 node_modules/
+
+# فایل‌های محلی استقرار (رازها و پیکربندی مخصوص هر سرور)
+.env
+server/.env
+server/deploy/local/
+server/docker-compose.override.yml
