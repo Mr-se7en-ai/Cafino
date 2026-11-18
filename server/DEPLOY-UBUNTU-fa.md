@@ -1,5 +1,38 @@
 # راهنمای استقرار Production روی Ubuntu (22.04 / 24.04) — کافینو 1.75.0
 
+## ⚡ نصب یک‌دستوری (پیشنهادی)
+
+روی یک Ubuntu 22.04/24.04 **تازه** (دست‌کم ۲ گیگ RAM، ۲۰ گیگ دیسک) با دسترسی root/sudo:
+
+```bash
+# ۱) سورس را روی سرور بگذارید (مخزن خصوصی است: توکن فقط‌خواندنیِ GitHub یا zip)
+sudo apt-get update && sudo apt-get install -y git
+TOKEN=ghp_xxx    # توکن فقط‌خواندنی؛ بعد از نصب می‌توانید آن را باطل کنید
+sudo git -c "http.extraheader=Authorization: Basic $(printf 'x-access-token:%s' "$TOKEN" | base64 -w0)" \
+  clone --depth 1 https://github.com/Mr-se7en-ai/Cafino.git /opt/cafino
+# ۲) نصب (دامنه باید از قبل به IP سرور اشاره کند)
+sudo bash /opt/cafino/server/deploy/install.sh --domain cafino.example.ir --admin-email you@example.com
+```
+
+بدون دامنه (فقط آزمایش، HTTP روی IP): `--no-tls`. طرح کار بدون تغییر: `--dry-run`. همهٔ گزینه‌ها: `install.sh --help`.
+
+**اسکریپت چه می‌کند:** بررسی سیستم و DNS ← بستهٔ پایه + Docker ← ساخت برنامه داخل کانتینر Node (روی سرور Node لازم نیست) و `verify:dist` ← ساخت `server/.env` با رازهای تصادفی (۶۰۰) ← Caddy داخل docker با HTTPS خودکار Let's Encrypt ← `docker compose up -d --build` (مهاجرت‌ها خودکار) ← ساخت مدیر پنل مرکزی (رمز تصادفی، ذخیره در `/root/cafino-credentials.txt`) ← فایروال ufw (SSH تشخیص‌داده‌شده + 80 + 443) ← cron پشتیبان روزانه ۰۳:۰۰ و پایش هر ۵ دقیقه + نخستین پشتیبان ← بررسی نهایی.
+
+**ایمن برای اجرای دوباره:** رازهای `.env` هرگز عوض نمی‌شوند (رمز دیتابیس در volume ثبت شده)، مدیر دوباره ساخته نمی‌شود (`--reset-admin` برای بازنشانی)، داده‌ها دست نمی‌خورند. اگر volume پایگاه‌داده هست ولی `.env` نیست، نصب برای جلوگیری از قفل‌شدن داده متوقف می‌شود.
+
+**به‌روزرسانی:** `sudo GITHUB_TOKEN=… bash /opt/cafino/server/deploy/update.sh` — پشتیبان ← دریافت سورس ← ساخت ← راه‌اندازی دوباره ← بررسی. اگر پشتیبان ناموفق باشد، به‌روزرسانی انجام نمی‌شود.
+
+**سرور داخل ایران:**
+- `api.telegram.org` معمولاً بسته است؛ برای مینی‌اپ/ربات تلگرام یک پراکسی معکوس Bot API بگیرید و با `--telegram-api-base https://…` بدهید (بله مستقیم کار می‌کند).
+- اگر Docker Hub/npm/`get.docker.com` در دسترس نیست: `NODE_IMAGE=<آینه>` ، `NPM_REGISTRY=<آینه>` ، `DOCKER_INSTALL_URL=<آینه>` را پیش از دستور بگذارید.
+- گواهی Let's Encrypt به دسترسی اینترنتی سرور و رکورد A (بدون Cloudflare «proxied») نیاز دارد.
+
+**بعد از نصب (دستی):** SMTP برای بازیابی رمز (`SMTP_URL`/`MAIL_FROM` در `.env`)، پشتیبان بیرون از سرور (`OFFSITE_CMD`)، تغییر رمز مدیر و پاک‌کردن `/root/cafino-credentials.txt`.
+
+> وضعیت راستی‌آزمایی: `install.sh` با `bash -n`، `shellcheck`، حالت `--dry-run`، آزمون توابع کمکی و اعتبارسنجی `docker compose config` برای override تولیدی آزموده شد، اما **روی Ubuntu واقعی با daemon داکر، دامنه و Let's Encrypt اجرا نشده است**. نخستین اجرا را روی یک VPS آزمایشی انجام دهید و خروجی را بررسی کنید. راهنمای دستی زیر برای کنترل دقیق‌تر یا عیب‌یابی است.
+
+---
+
 > وضعیت راستی‌آزمایی (صادقانه): اسکریپت‌های `backup.sh`، `restore.sh`، `db-roles.sh`، `healthcheck.sh` و راه‌اندازی API با نقش محدود **روی PostgreSQL 16.15 واقعی اجرا و آزموده شده‌اند**. `docker-compose.yml` با `docker compose config` اعتبارسنجی شده، اما **کانتینرها در محیط توسعه اجرا نشدند** (daemon داکر نبود)، و **HTTPS/Caddy و ufw روی سرور واقعی آزموده نشده‌اند**. پیش از تحویل به مشتری، یک بار کل راهنما را روی یک VPS آزمایشی اجرا کنید.
 
 ## ۰) پیش‌نیازها
