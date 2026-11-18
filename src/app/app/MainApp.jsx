@@ -509,10 +509,12 @@ export function MainApp({onLogout,theme,setTheme,customFont,setCustomFont,userEm
           <button onClick={()=>setQuickServiceOpen(true)} title="سیستم فروش یکپارچه" style={{...BTN("linear-gradient(135deg,#7c3aed,#a855f7)","#fff"),display:"flex",alignItems:"center",justifyContent:"center",gap:8,padding:isCompact?"11px 0":"11px 12px",marginBottom:16,fontSize:13,width:"100%"}}>
             <Icon name="Plus" size={18}/>{!isCompact&&<span>فروش یکپارچه</span>}
           </button>
-          {navTree.filter(n=>n.featured).map(n=>{const t=TABS.find(x=>x.key===n.key);if(!t)return null;const on=activeTab===t.key;return(
-            <button key={t.key} data-testid={`nav-${t.key}`} data-featured="1" className={on?"tab-active":""} onClick={()=>selectTab(t.key)} title={t.label} style={{...BTN(FEATURED_GRADIENT[t.key]||"linear-gradient(135deg,#0f766e,#14b8a6)","#fff"),position:"relative",display:"flex",alignItems:"center",justifyContent:"center",gap:8,padding:isCompact?"11px 0":"11px 12px",marginTop:-6,marginBottom:16,fontSize:13,width:"100%",boxShadow:on?"0 0 0 2px #fff6, 0 4px 14px #0f766e66":"none"}}>
-              <Icon name={t.icon} size={18}/>{!isCompact&&<span>{t.label}</span>}{t.key==="uploads"&&<UploadsBadge style={isCompact?{position:"absolute",top:2,left:4,minWidth:14,height:14,fontSize:9}:{position:"absolute",top:"50%",left:10,transform:"translateY(-50%)"}}/>}
+          <div data-testid="featured-nav" style={{display:"flex",flexDirection:"column",gap:8,marginTop:-6,marginBottom:16}}>
+          {navTree.filter(n=>n.featured).map(n=>{const t=TABS.find(x=>x.key===n.key);if(!t)return null;const on=activeTab===t.key;const bdg=isCompact?{position:"absolute",top:2,left:4,minWidth:14,height:14,fontSize:9}:{position:"absolute",top:"50%",left:10,transform:"translateY(-50%)"};return(
+            <button key={t.key} data-testid={`nav-${t.key}`} data-featured="1" className={on?"tab-active":""} onClick={()=>selectTab(t.key)} title={t.label} style={{...BTN(FEATURED_GRADIENT[t.key]||"linear-gradient(135deg,#0f766e,#14b8a6)","#fff"),position:"relative",display:"flex",alignItems:"center",justifyContent:"center",gap:8,padding:isCompact?"11px 0":"11px 12px",fontSize:13,width:"100%",boxShadow:on?"0 0 0 2px #fff6, 0 4px 14px #0003":"none"}}>
+              <Icon name={t.icon} size={18}/>{!isCompact&&<span>{t.label}</span>}{t.key==="uploads"&&<UploadsBadge style={bdg}/>}{t.key==="miniapp-orders"&&<MiniReqBadge style={bdg}/>}
             </button>);})}
+          </div>
           <div data-testid="side-nav" style={{display:"flex",flexDirection:"column",gap:2,marginBottom:12}}>
             {navTree.filter(n=>!n.featured).map(n=>{
               const navBtn=(t,sub)=>{

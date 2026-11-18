@@ -12,10 +12,20 @@ test("مدیریت فایل: برچسب جدید، دکمهٔ مستقل با ر
   assert.match(c, /key:"uploads",icon:"FolderOpen",label:"مدیریت فایل"/);
   assert.match(c, /\{key:"uploads",featured:true\}/);
   assert.doesNotMatch(c, /group:"manage"[^\n]*"uploads"/);
-  assert.match(c, /FEATURED_GRADIENT=Object\.freeze\(\{uploads:"linear-gradient\(135deg,#0f766e,#14b8a6\)"\}\)/, "رنگ فیروزه‌ای، متفاوت از بنفشِ فروش یکپارچه");
+  assert.match(c, /FEATURED_GRADIENT=Object\.freeze\(\{uploads:"linear-gradient\(135deg,#0f766e,#14b8a6\)","miniapp-orders":"linear-gradient\(135deg,#c2410c,#f59e0b\)"\}\)/, "فیروزه‌ای برای مدیریت فایل، نارنجی برای آنلاین شاپ؛ هر دو متفاوت از بنفشِ فروش یکپارچه");
   assert.match(m, /navTree\.filter\(n=>n\.featured\)/, "دکمه جدا از فهرست منو رندر می‌شود");
   assert.match(m, /navTree\.filter\(n=>!n\.featured\)/, "در فهرست زیرمنوها تکرار نمی‌شود");
   assert.ok(m.indexOf("سیستم فروش یکپارچه") < m.indexOf('data-featured="1"') && m.indexOf('data-featured="1"') < m.indexOf('data-testid="side-nav"'), "زیر «فروش یکپارچه» و بالای منو");
+});
+
+test("1.86 — آنلاین شاپ دکمهٔ مستقل زیر «مدیریت فایل» با رنگ دیگر؛ سه دکمهٔ فروش از منوی کناری حذف", () => {
+  const c = read("../app/core/constants.js"), m = read("../app/app/MainApp.jsx");
+  assert.match(c, /\{key:"uploads",featured:true\},\s*\{key:"miniapp-orders",featured:true\}/, "پشت سرِ مدیریت فایل");
+  assert.match(c, /key:"miniapp-orders",icon:"ShoppingBag",label:"آنلاین شاپ",nav:"main"/);
+  assert.match(c, /group:"shop"[^\n]*keys:\["shop-all","pos","topup","printscan"\]/);
+  assert.doesNotMatch(c, /group:"shop"[^\n]*(shop-services|shop-inperson|shop-online|miniapp-orders)/);
+  assert.match(m, /t\.key==="miniapp-orders"&&<MiniReqBadge/); assert.match(m, /data-testid="featured-nav"/);
+  assert.ok(m.indexOf('data-testid="featured-nav"') < m.indexOf('data-testid="side-nav"'));
 });
 
 test("آنلاین شاپ: برچسب منو/صفحه و ثبت ویجت و کاشی‌های زنده", () => {
