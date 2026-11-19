@@ -5,6 +5,7 @@ import { tx } from "../db.js";
 import { HttpError, badRequest, conflict, invalid, unauthorized } from "../lib/errors.js";
 import { DUMMY_HASH, hashPassword, passwordProblem, randomCode, randomToken, safeEqual, sha256, signAccess, validEmail, verifyPassword } from "../lib/security.js";
 import { toText } from "../lib/validate.js";
+import { createLoginGuard } from "../lib/loginCaptcha.js";
 
 const MAX_FAILS = 8, LOCK_MIN = 15;
 export const ROLE_PERMISSIONS = {
@@ -43,6 +44,7 @@ export function registerAuth(app) {
   }
   const clearCookies = (reply) => { reply.clearCookie("cafino_at", cookieBase); reply.clearCookie("cafino_rt", { ...cookieBase, path: "/api/auth" }); };
   const rate = (max) => ({ config: { rateLimit: { max, timeWindow: "1 minute" } } });
+  const guard = createLoginGuard(cfg);   // کپچای ورود (فقط بعد از چند شکست)
 
   // ── ثبت‌نام (در تولید پیش‌فرض بسته؛ کافی‌نت‌ها را پنل مرکزی می‌سازد) ───────────────────────────────────────────────────────
   app.post("/api/auth/register", rate(cfg.authRateLimitMax), async (req, reply) => {
@@ -67,15 +69,29 @@ export function registerAuth(app) {
     return reply.code(201).send({ data: result });
   });
 
+  // ── کپچای ورود: چالش بدون وضعیت (توکن امضاشده)، هر توکن یک‌بارمصرف و ۵ دقیقه‌ای ─────────────────────────────────────────────
+  app.get("/api/auth/captcha", rate(30), async (req, reply) => {
+    if (!guard.enabled) return reply.code(404).send({ error: { code: "not_found", message: "کپچا فعال نیست" } });
+    reply.header("Cache-Control", "no-store");
+    return { data: guard.challenge() };
+  });
+
   // ── ورود: قفل موقت پس از چند اشتباه، زمان پاسخ برای ایمیل ناموجود هم یکسان ────────────────────────────────────────────────────
   app.post("/api/auth/login", rate(cfg.authRateLimitMax), async (req, reply) => {
     const email = String(req.body?.email || "").trim().toLowerCase();
     const password = String(req.body?.password || "");
     if (!validEmail(email) || !password || password.length > 128) throw unauthorized("ایمیل یا رمز عبور درست نیست");
+    // کپچا فقط بعد از چند شکست (برای همان IP یا همان ایمیل — یکسان برای ایمیل موجود/ناموجود)؛ قبل از بررسی رمز تا ابزار حدس رمز نشود.
+    // پاسخ غلط کپچا «شکست رمز» حساب نمی‌شود، پس کسی نمی‌تواند با ارسال کپچای غلط حساب دیگری را قفل کند.
+    if (guard.required(req.ip, email)) {
+      const v = guard.verify(req.body?.captchaId, req.body?.captchaAnswer);
+      if (!v.ok) throw new HttpError(403, v.reason === "missing" ? "captcha_required" : "captcha_invalid", v.reason === "missing" ? "برای ادامه، کد تصویر را وارد کنید" : v.reason === "expired" ? "کد تصویر منقضی شده است؛ کد جدید را وارد کنید" : "کد تصویر درست نیست؛ کد جدید را وارد کنید");
+    }
     const u = (await pool.query("SELECT u.*, c.status AS cafe_status FROM users u LEFT JOIN cafes c ON c.id = u.cafe_id WHERE u.email=$1", [email])).rows[0];
     const locked = u?.locked_until && new Date(u.locked_until) > new Date();
     const ok = await verifyPassword(password, u?.password_hash || DUMMY_HASH);
     if (!u || locked || !ok || !u.is_active) {
+      guard.fail(req.ip, email);
       if (u && !locked && !ok) {
         const r = await pool.query("UPDATE users SET failed_logins = failed_logins + 1, locked_until = CASE WHEN failed_logins + 1 >= $2 THEN now() + ($3 || ' minutes')::interval ELSE locked_until END WHERE id=$1 RETURNING failed_logins", [u.id, MAX_FAILS, String(LOCK_MIN)]);
         if (r.rows[0].failed_logins === MAX_FAILS) await tx(pool, (c) => audit(c, { cafeId: u.cafe_id, userId: u.id, action: "auth.locked", entity: "user", entityId: u.id, ip: req.ip }));
@@ -84,6 +100,7 @@ export function registerAuth(app) {
       throw unauthorized("ایمیل یا رمز عبور درست نیست");
     }
     if (u.cafe_status === "suspended") throw new HttpError(403, "cafe_suspended", "اشتراک این کافی‌نت تعلیق شده است");
+    guard.success(email);
     const result = await tx(pool, async (c) => {
       await c.query("UPDATE users SET failed_logins=0, locked_until=NULL, last_login_at=now() WHERE id=$1", [u.id]);
       await audit(c, { cafeId: u.cafe_id, userId: u.id, action: "auth.login", entity: "user", entityId: u.id, ip: req.ip });

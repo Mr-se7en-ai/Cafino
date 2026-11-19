@@ -85,6 +85,8 @@ export function loadConfig(source = env) {
     bodyLimit: int(e.BODY_LIMIT_BYTES, 1024 * 1024),
     rateLimitMax: int(e.RATE_LIMIT_MAX, 600),                       // درخواست در دقیقه برای هر IP
     authRateLimitMax: int(e.AUTH_RATE_LIMIT_MAX, 20),               // ورود/بازیابی در دقیقه برای هر IP
+    captchaAfterFails: Math.max(0, int(e.CAPTCHA_AFTER_FAILS, 3)),   // کپچای ورود بعد از این تعداد شکست (برای همان IP یا همان ایمیل)؛ ۰ = خاموش
+    captchaWindowMin: Math.max(1, int(e.CAPTCHA_WINDOW_MIN, 15)),    // پنجرهٔ شمارش شکست‌ها (دقیقه)
     smtpUrl: e.SMTP_URL || "",
     mailFrom: e.MAIL_FROM || "کافینو <no-reply@localhost>",
     logLevel: e.LOG_LEVEL || (production ? "info" : "warn"),

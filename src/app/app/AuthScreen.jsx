@@ -9,6 +9,8 @@ import { logActivity } from "../core/activity.js";
 import { BTN, INP } from "../core/constants.js";
 import { appFontFamily, themeVars } from "../core/theme.jsx";
 import { ForgotPasswordForm, RecoveryCodeNotice } from "./ForgotPassword.jsx";
+import { LoginCaptcha } from "./LoginCaptcha.jsx";
+import { captchaPayload, captchaReady, isCaptchaCode } from "./loginCaptcha.js";
 import { APP_BRAND } from "../core/version.js";
 import { enterGuestMode } from "../../guest/guestMode.js";
 import { useSkin } from "../../skins/useSkin.js";
@@ -42,6 +44,16 @@ export function AuthScreen({onLoggedIn,theme,customFont}){
   const [password2,setPassword2]=useState("");
   const [err,setErr]=useState("");
   const [busy,setBusy]=useState(false);
+  // کپچای ورود: فقط بعد از چند شکست پیاپی (سرور تصمیم می‌گیرد)؛ هر چالش یک‌بارمصرف است و بعد از هر تلاش تازه می‌شود
+  const [captcha,setCaptcha]=useState(null);            // {id,image} | null
+  const [captchaLoading,setCaptchaLoading]=useState(false);
+  const [captchaAnswer,setCaptchaAnswer]=useState("");
+  const loadCaptcha=async()=>{
+    setCaptchaLoading(true);setCaptchaAnswer("");
+    try{const c=await apiResources.auth.captcha();setCaptcha(c?.id?c:null);}
+    catch{setCaptcha(null);setErr(p=>p||"دریافت کد تصویر ممکن نشد؛ اتصال را بررسی کنید و «کد جدید» را بزنید");}
+    setCaptchaLoading(false);
+  };
 
   const validEmail=(e)=>/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
 
@@ -55,6 +67,7 @@ export function AuthScreen({onLoggedIn,theme,customFont}){
     if(!validEmail(email)){setErr("ایمیل معتبر وارد کنید");return;}
     if(password.length<8){setErr("رمز عبور باید حداقل ۸ کاراکتر باشد");return;}
     if(mode==="register"&&password!==password2){setErr("تکرار رمز عبور مطابقت ندارد");return;}
+    if(remoteAuth&&mode==="login"&&!captchaReady(captcha,captchaAnswer)){setErr("عدد ۵ رقمی تصویر را وارد کنید");return;}
     setBusy(true);
     try{
       if(remoteAuth){
@@ -62,7 +75,7 @@ export function AuthScreen({onLoggedIn,theme,customFont}){
         const phoneDigits=Array.from(phone,character=>{const code=character.charCodeAt(0);return code>=0x06f0&&code<=0x06f9?String(code-0x06f0):code>=0x0660&&code<=0x0669?String(code-0x0660):character;}).join("").replace(/\D/g,"");
         const payload=mode==="register"
           ?{email:emailKey,password,firstName:firstName.trim(),lastName:lastName.trim(),phone:phoneDigits}
-          :{email:emailKey,password};
+          :{email:emailKey,password,...captchaPayload(captcha,captchaAnswer)};
         const authResult=mode==="register"?await apiResources.auth.register(payload):await apiResources.auth.login(payload);
         setAuthSession(authResult);
         const authIdentity=normalizeAuthUser(authResult);
@@ -93,7 +106,11 @@ export function AuthScreen({onLoggedIn,theme,customFont}){
         logActivity("ورود به حساب","");
         onLoggedIn(emailKey);
       }
-    }catch(error){setErr(error?.message||"خطایی رخ داد، دوباره تلاش کنید");}
+    }catch(error){
+      setErr(error?.message||"خطایی رخ داد، دوباره تلاش کنید");
+      // کپچا لازم شد/غلط بود، یا کپچا نمایش داده می‌شد و تلاش رد شد (چالش مصرف شده) → کد تازه
+      if(remoteAuth&&mode==="login"&&(isCaptchaCode(error?.code)||captcha))await loadCaptcha();
+    }
     setBusy(false);
   };
 
@@ -143,6 +160,7 @@ export function AuthScreen({onLoggedIn,theme,customFont}){
               <input type="password" value={password2} onChange={e=>setPassword2(e.target.value)} onKeyDown={e=>e.key==="Enter"&&submit()} placeholder="••••••••" style={INP} dir="ltr"/>
             </label>
           )}
+          {remoteAuth&&mode==="login"&&captcha&&<LoginCaptcha challenge={captcha} loading={captchaLoading} value={captchaAnswer} onChange={setCaptchaAnswer} onRefresh={loadCaptcha} onSubmit={submit}/>}
           {mode==="login"&&<button data-testid="forgot-link" type="button" onClick={()=>{setMode("forgot");setErr("");setNotice("");}} style={{background:"transparent",border:"none",color:"var(--accent-light)",fontSize:12,cursor:"pointer",fontFamily:"inherit",textAlign:"right",padding:0,marginTop:-4}}>رمز عبور را فراموش کرده‌اید؟</button>}
           {notice&&<div data-testid="auth-notice" style={{background:"#052e16",border:"1px solid #16a34a44",borderRadius:8,padding:"8px 12px",fontSize:12,color:"#4ade80"}}>✓ {notice}</div>}
           {err&&<div style={{background:"#2d0a0a",border:"1px solid #dc262644",borderRadius:8,padding:"8px 12px",fontSize:12,color:"#f87171"}}>⚠️ {err}</div>}

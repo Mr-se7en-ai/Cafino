@@ -184,6 +184,8 @@ export function createApiResources(client) {
   return {
     auth: {
       login: payload => client.request("/api/auth/login", { method: "POST", body: payload }),
+      // کپچای ورود: سرور فقط بعد از چند شکست آن را می‌خواهد ({id, image: data-URI, expiresIn}); هر چالش یک‌بارمصرف است
+      captcha: () => client.request("/api/auth/captcha"),
       register: payload => client.request("/api/auth/register", { method: "POST", body: payload }),
       refresh: payload => client.request("/api/auth/refresh", { method: "POST", body: payload }),
       logout: () => client.request("/api/auth/logout", { method: "POST" }),
