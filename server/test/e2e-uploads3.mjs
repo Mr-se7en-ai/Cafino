@@ -110,8 +110,8 @@ ok(gone, "removing the logo in the shop profile removes it on the server");
 // ── «درباره من»
 await p.goto(base + "/?tab=about"); await p.waitForSelector('[data-testid="about-page"]', { timeout: 20000 });
 const feats = await p.$$eval('[data-testid="about-feature"]', (e) => e.map((x) => [x.dataset.since, x.textContent]));
-ok(feats.filter(([s]) => s === "1.86.0").length >= 1 && (await p.$$('[data-testid="about-new"]')).length >= 1, "About page shows the new 1.86.0 feature with a «جدید» badge");
-ok((await p.textContent('[data-testid="about-version"]')).includes("1.86.0"), "About page shows v1.86.0");
+ok(feats.filter(([s]) => s === "1.87.0").length >= 1 && (await p.$$('[data-testid="about-new"]')).length >= 1, "About page shows the new 1.87.0 feature with a «جدید» badge");
+ok((await p.textContent('[data-testid="about-version"]')).includes("1.87.0"), "About page shows v1.87.0");
 ok(feats.some(([, t]) => t.includes("QR موقت")) && feats.some(([, t]) => t.includes("ابزارهای PDF")), "About page lists the 1.77 features too");
 await p.screenshot({ path: process.env.SHOT_ABOUT || "/tmp/about.png", fullPage: true });
 

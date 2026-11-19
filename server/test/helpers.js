@@ -34,7 +34,7 @@ export async function startDb() {
 export const stopDb = () => stop();
 
 export async function makeApp(databaseUrl, overrides = {}) {
-  const cfg = { ...loadConfig({ DATABASE_URL: databaseUrl, JWT_SECRET: "x".repeat(48), NODE_ENV: "test", ALLOW_REGISTRATION: "true", AUTH_RATE_LIMIT_MAX: "1000", RATE_LIMIT_MAX: "100000", ...overrides.env }), ...overrides.cfg };
+  const cfg = { ...loadConfig({ DATABASE_URL: databaseUrl, JWT_SECRET: "x".repeat(48), NODE_ENV: "test", ALLOW_REGISTRATION: "true", AUTH_RATE_LIMIT_MAX: "1000", CAPTCHA_AFTER_FAILS: "0", RATE_LIMIT_MAX: "100000", ...overrides.env }), ...overrides.cfg };
   const pool = createPool(cfg);
   await migrate(pool);
   const app = await buildApp(cfg, { pool, logger: false });
