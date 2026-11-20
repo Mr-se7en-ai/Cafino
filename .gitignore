@@ -6,3 +6,11 @@ node_modules/
 server/.env
 server/deploy/local/
 server/docker-compose.override.yml
+
+# خروجی‌های ساخت/انتشار (تولیدی؛ داخل مخزن نمی‌روند)
+/dist/
+/release-out/
+.deploy-state/
+.releases/
+el/electron-app/dist/
+el/electron-app/release/

@@ -1,0 +1,116 @@
+name: Deploy CAFINO release bundle
+description: >-
+  بستهٔ انتشار ساخته‌شده توسط CI را از طریق SSH (کلید محدود با فرمان اجباری) روی یک سرور مستقر می‌کند:
+  plan (مهاجرت‌های در انتظار) ← deploy (پشتیبان، مهاجرت کنترل‌شده، سوییچ، health check، بازگشت خودکار) ← health check بیرونی و درونی.
+inputs:
+  environment: { description: "production | staging", required: true }
+  run-id: { description: "شناسهٔ اجرای CI که Artifact cafino-release را دارد", required: true }
+  github-token: { description: "توکن برای دانلود Artifact", required: true }
+  host: { description: "نشانی سرور", required: true }
+  port: { description: "پورت SSH", required: false, default: "22" }
+  user: { description: "کاربر SSH (کاربر محدود cafino-deploy)", required: false, default: "cafino-deploy" }
+  ssh-key: { description: "کلید خصوصی استقرار (Secret)", required: true }
+  known-hosts: { description: "خط(های) known_hosts سرور (اثر انگشت تأییدشده)", required: true }
+  public-url: { description: "نشانی عمومی برای health check بیرونی (مثلاً https://cafino.example.ir)", required: false, default: "" }
+  approve-migrations: { description: "تأیید صریح مهاجرت‌های ساختار دیتابیس", required: false, default: "false" }
+outputs:
+  release-id: { description: "شناسهٔ انتشار", value: "${{ steps.meta.outputs.id }}" }
+  pending-migrations: { description: "مهاجرت‌های در انتظار (none = ندارد)", value: "${{ steps.plan.outputs.pending }}" }
+runs:
+  using: composite
+  steps:
+    - uses: actions/download-artifact@v4
+      with:
+        name: cafino-release
+        run-id: ${{ inputs.run-id }}
+        github-token: ${{ inputs.github-token }}
+        path: release
+    - name: بررسی یکپارچگی بسته
+      id: meta
+      shell: bash
+      run: |
+        set -euo pipefail
+        cd release
+        B="$(ls cafino-release-*.tar.gz)"; [ "$(echo "$B" | wc -l)" = 1 ] || { echo "::error::دقیقاً یک بسته انتظار می‌رفت"; exit 1; }
+        sha256sum -c "$B.sha256"
+        echo "id=$(cat RELEASE_ID.txt)" >> "$GITHUB_OUTPUT"
+        echo "bundle=$PWD/$B" >> "$GITHUB_OUTPUT"
+        echo "sha=$(cut -d' ' -f1 "$B.sha256")" >> "$GITHUB_OUTPUT"
+    - name: آماده‌سازی SSH (کلید + اثر انگشت سرور تأییدشده)
+      shell: bash
+      env:
+        KEY: ${{ inputs.ssh-key }}
+        KNOWN: ${{ inputs.known-hosts }}
+      run: |
+        set -euo pipefail
+        [ -n "$KEY" ] && [ -n "$KNOWN" ] || { echo "::error::Secretهای DEPLOY_SSH_KEY / DEPLOY_KNOWN_HOSTS برای این محیط تنظیم نشده‌اند"; exit 1; }
+        umask 077; mkdir -p ~/.ssh
+        printf '%s\n' "$KEY" > ~/.ssh/cafino_deploy; printf '%s\n' "$KNOWN" > ~/.ssh/known_hosts
+        chmod 600 ~/.ssh/cafino_deploy ~/.ssh/known_hosts
+        # StrictHostKeyChecking=yes: بدون اعتماد کورکورانه به اولین کلید دیده‌شده؛ اگر کلید سرور عوض شده یا جعلی باشد، اتصال رد می‌شود
+        {
+          echo '#!/usr/bin/env bash'
+          echo 'exec ssh -i ~/.ssh/cafino_deploy -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=~/.ssh/known_hosts -o ConnectTimeout=20 -o ServerAliveInterval=30 -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" "$@"'
+        } > "$RUNNER_TEMP/cafino-ssh"; chmod 700 "$RUNNER_TEMP/cafino-ssh"
+    - name: Plan — مهاجرت‌های در انتظار
+      id: plan
+      shell: bash
+      env:
+        SSH_HOST: ${{ inputs.host }}
+        SSH_PORT: ${{ inputs.port }}
+        SSH_USER: ${{ inputs.user }}
+      run: |
+        set -euo pipefail
+        "$RUNNER_TEMP/cafino-ssh" "plan ${{ inputs.environment }} ${{ steps.meta.outputs.sha }}" < "${{ steps.meta.outputs.bundle }}" | tee plan.txt
+        P="$(sed -n 's/^PLAN .* pending_migrations=//p' plan.txt | tail -1)"
+        [ -n "$P" ] || { echo "::error::خروجی plan خوانده نشد"; exit 1; }
+        echo "pending=$P" >> "$GITHUB_OUTPUT"
+        {
+          echo "#### ${{ inputs.environment }} — ${{ steps.meta.outputs.id }}"
+          echo "- مهاجرت‌های دیتابیس در انتظار: \`$P\`"
+        } >> "$GITHUB_STEP_SUMMARY"
+        if [ "$P" != none ] && [ "${{ inputs.approve-migrations }}" != true ]; then
+          echo "::error::این انتشار مهاجرت ساختار دیتابیس دارد ($P). برای ادامه، همین workflow را دستی (Run workflow) با «approve_migrations = true» اجرا کنید؛ پیش از آن محتوای مهاجرت‌ها را بخوانید. چیزی روی سرور تغییر نکرد."
+          exit 3
+        fi
+    - name: Deploy — پشتیبان، مهاجرت کنترل‌شده، سوییچ، health check (بازگشت خودکار در شکست)
+      id: deploy
+      shell: bash
+      env:
+        SSH_HOST: ${{ inputs.host }}
+        SSH_PORT: ${{ inputs.port }}
+        SSH_USER: ${{ inputs.user }}
+      run: |
+        set -euo pipefail
+        ARGS=""; [ "${{ steps.plan.outputs.pending }}" != none ] && ARGS=" approve-migrations"
+        "$RUNNER_TEMP/cafino-ssh" "deploy ${{ inputs.environment }} ${{ steps.meta.outputs.sha }}$ARGS" < "${{ steps.meta.outputs.bundle }}"
+    - name: Health check مستقل (از بیرون و درون سرور)
+      shell: bash
+      env:
+        SSH_HOST: ${{ inputs.host }}
+        SSH_PORT: ${{ inputs.port }}
+        SSH_USER: ${{ inputs.user }}
+      run: |
+        set -uo pipefail
+        URL="${{ inputs.public-url }}"
+        if [ -n "$URL" ]; then
+          curl -fsS --retry 12 --retry-delay 5 --retry-connrefused --max-time 15 "$URL/healthz" >/dev/null || { echo "::error::$URL/healthz از بیرون پاسخ نداد (DNS، Caddy یا فایروال؟)"; exit 1; }
+          echo "- health بیرونی: ✓ $URL" >> "$GITHUB_STEP_SUMMARY"
+        else echo "::warning::public-url تنظیم نشده؛ health بیرونی انجام نشد"; fi
+        "$RUNNER_TEMP/cafino-ssh" "health ${{ inputs.environment }}"; rc=$?
+        [ "$rc" -lt 2 ] || { echo "::error::healthcheck روی سرور وضعیت CRIT داد"; exit 1; }
+        echo "- health درونی سرور: کد $rc (۰=سالم، ۱=هشدار)" >> "$GITHUB_STEP_SUMMARY"
+    - name: وضعیت سرور (در صورت شکست)
+      if: failure()
+      shell: bash
+      env:
+        SSH_HOST: ${{ inputs.host }}
+        SSH_PORT: ${{ inputs.port }}
+        SSH_USER: ${{ inputs.user }}
+      run: |
+        "$RUNNER_TEMP/cafino-ssh" "status ${{ inputs.environment }}" || true
+        echo "::warning::اگر مهاجرت اعمال شده بود، پشتیبان پیش از استقرار روی سرور است (DEPLOYMENT_FA.md بخش «بازگشت»)."
+    - name: پاک‌سازی کلید
+      if: always()
+      shell: bash
+      run: rm -f ~/.ssh/cafino_deploy ~/.ssh/known_hosts "$RUNNER_TEMP/cafino-ssh"

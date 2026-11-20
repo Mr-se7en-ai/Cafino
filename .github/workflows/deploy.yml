@@ -1,0 +1,104 @@
+# استقرار خودکار پس از CI موفق روی main:  Staging (خودکار) ← Production (فقط با تأیید دستی در GitHub Environment «production»).
+# همچنین دستی: Actions ← Deploy ← Run workflow (انتخاب محیط، اجرای CI، تأیید مهاجرت).
+# ⚠️ تا زمانی که متغیر مخزن DEPLOY_ENABLED برابر true نشود (و سرور واقعاً آماده نباشد) هیچ کاری انجام نمی‌شود — طراحی‌شده برای «پس از خرید سرور».
+# تنظیمات لازم: DEPLOYMENT_FA.md بخش ۴ و ۱۱ (Environmentهای staging و production؛ Secrets: DEPLOY_HOST, DEPLOY_SSH_KEY, DEPLOY_KNOWN_HOSTS؛
+#   Variables: DEPLOY_PORT, DEPLOY_USER, PUBLIC_URL). Production را در Settings ← Environments با «Required reviewers» محافظت کنید.
+name: Deploy
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "محیط مقصد"
+        type: choice
+        options: [staging, production]
+        default: staging
+      run_id:
+        description: "شناسهٔ اجرای CI (خالی = آخرین اجرای موفق main)"
+        required: false
+      approve_migrations:
+        description: "تأیید صریح مهاجرت ساختار دیتابیس (پس از خواندن آن‌ها)"
+        type: boolean
+        default: false
+permissions:
+  contents: read
+  actions: read
+jobs:
+  gate:
+    runs-on: ubuntu-24.04
+    outputs:
+      go: ${{ steps.g.outputs.go }}
+      run_id: ${{ steps.g.outputs.run_id }}
+    steps:
+      - id: g
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ENABLED: ${{ vars.DEPLOY_ENABLED }}
+          EVENT: ${{ github.event_name }}
+          WR_ID: ${{ github.event.workflow_run.id }}
+          WR_CONCL: ${{ github.event.workflow_run.conclusion }}
+          WR_EVENT: ${{ github.event.workflow_run.event }}
+          IN_RUN: ${{ inputs.run_id }}
+        run: |
+          set -euo pipefail
+          if [ "$ENABLED" != true ]; then echo "::notice::DEPLOY_ENABLED برابر true نیست؛ استقرار انجام نمی‌شود (سرور هنوز آماده نیست)."; echo "go=false" >> "$GITHUB_OUTPUT"; exit 0; fi
+          if [ "$EVENT" = workflow_run ]; then
+            [ "$WR_CONCL" = success ] && [ "$WR_EVENT" = push ] || { echo "::notice::CI موفق (push روی main) نبود؛ استقرار انجام نمی‌شود."; echo "go=false" >> "$GITHUB_OUTPUT"; exit 0; }
+            RID="$WR_ID"
+          else
+            RID="$IN_RUN"
+            [ -n "$RID" ] || RID="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?branch=main&event=push&status=success&per_page=1" --jq '.workflow_runs[0].id')"
+            [ -n "$RID" ] && [ "$RID" != null ] || { echo "::error::اجرای CI موفقی روی main پیدا نشد"; exit 1; }
+          fi
+          # فقط اجرای CI همین مخزن و روی main (جلوگیری از استقرار Artifact دلخواه)
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RID" --jq '[.head_branch,.event,.conclusion,.path]|@tsv' | tee run.txt
+          grep -qP '^main\tpush\tsuccess\t.github/workflows/ci\.yml' run.txt || { echo "::error::اجرای $RID یک CI موفقِ push روی main نیست"; exit 1; }
+          echo "go=true" >> "$GITHUB_OUTPUT"; echo "run_id=$RID" >> "$GITHUB_OUTPUT"
+
+  staging:
+    needs: gate
+    if: needs.gate.outputs.go == 'true' && vars.STAGING_ENABLED == 'true' && (github.event_name == 'workflow_run' || inputs.target == 'staging')
+    runs-on: ubuntu-24.04
+    environment: staging
+    concurrency: { group: deploy-staging, cancel-in-progress: false }
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/deploy-bundle
+        with:
+          environment: staging
+          run-id: ${{ needs.gate.outputs.run_id }}
+          github-token: ${{ github.token }}
+          host: ${{ secrets.DEPLOY_HOST }}
+          port: ${{ vars.DEPLOY_PORT || '22' }}
+          user: ${{ vars.DEPLOY_USER || 'cafino-deploy' }}
+          ssh-key: ${{ secrets.DEPLOY_SSH_KEY }}
+          known-hosts: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          public-url: ${{ vars.PUBLIC_URL }}
+          approve-migrations: ${{ inputs.approve_migrations || vars.AUTO_APPROVE_MIGRATIONS_STAGING || 'true' }}
+
+  production:
+    needs: [gate, staging]
+    # staging موفق یا (چون فعال نیست) رد شده باشد؛ شکست staging = توقف. production همیشه تأیید دستی Environment می‌خواهد.
+    if: ${{ !cancelled() && needs.gate.outputs.go == 'true' && (needs.staging.result == 'success' || needs.staging.result == 'skipped') && (github.event_name == 'workflow_run' || inputs.target == 'production') }}
+    runs-on: ubuntu-24.04
+    environment: production
+    concurrency: { group: deploy-production, cancel-in-progress: false }
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/deploy-bundle
+        with:
+          environment: production
+          run-id: ${{ needs.gate.outputs.run_id }}
+          github-token: ${{ github.token }}
+          host: ${{ secrets.DEPLOY_HOST }}
+          port: ${{ vars.DEPLOY_PORT || '22' }}
+          user: ${{ vars.DEPLOY_USER || 'cafino-deploy' }}
+          ssh-key: ${{ secrets.DEPLOY_SSH_KEY }}
+          known-hosts: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          public-url: ${{ vars.PUBLIC_URL }}
+          approve-migrations: ${{ inputs.approve_migrations || 'false' }}
