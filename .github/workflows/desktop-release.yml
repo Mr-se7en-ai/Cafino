@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v4
         with: { node-version: 22, cache: npm }
       - run: npm ci
@@ -36,7 +36,7 @@ jobs:
     runs-on: windows-2022
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v4
         with: { node-version: 22, cache: npm, cache-dependency-path: el/electron-app/package-lock.json }
       - name: نصب وابستگی‌های Electron
@@ -82,7 +82,7 @@ jobs:
     permissions:
       contents: write          # فقط همین job اجازهٔ ساخت Release دارد
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/download-artifact@v4
         with: { name: cafino-windows-x64, path: out }
       - name: ساخت GitHub Release (نسخه‌های قبلی حفظ می‌شوند)
