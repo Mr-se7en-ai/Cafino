@@ -22,7 +22,8 @@ DOCKER_INSTALL_URL="${DOCKER_INSTALL_URL:-https://get.docker.com}"
 DIR="${CAFINO_DIR:-/opt/cafino}" BRANCH="${CAFINO_BRANCH:-main}"
 DOMAIN="" EMAIL="" ADMIN_EMAIL="" ADMIN_PASSWORD="${ADMIN_PASSWORD:-}" TG_BASE=""
 NO_TLS=0 NO_FIREWALL=0 NO_PROXY=0 WITH_CLAMAV=0 ASSUME_YES=0 DRY_RUN=0 REBUILD=0 SKIP_DNS=0 RESET_ADMIN=0
-UPDATE=0 NO_PULL=0 SKIP_BACKUP=0 SSH_PORT=""
+UPDATE=0 NO_PULL=0 SKIP_BACKUP=0 SSH_PORT="" TARGET_ENV="${CAFINO_ENV:-production}" DIR_SET=0
+PROJECT="" WEB_PORT=8080 EDGE_ALIAS="" BACKUP_DIR_ENV="" EDGE_NET="cafino-edge" PROD_DIR="${CAFINO_PROD_DIR:-/opt/cafino}"
 SRC="" SRV="" ENV_FILE="" LOCAL_DIR="" PUBLIC_HOST="" SCHEME="https" GENERATED_PW=0 FAILS=0
 
 c_red=$'\e[31m'; c_grn=$'\e[32m'; c_yel=$'\e[33m'; c_blu=$'\e[36m'; c_off=$'\e[0m'
@@ -49,6 +50,8 @@ usage() {
   --ssh-port پورت           پورت SSH برای فایروال (پیش‌فرض: تشخیص خودکار، وگرنه 22)
   --with-clamav             ضدویروس ClamAV برای فایل‌های دریافتی (حدود ۱ گیگ RAM بیشتر)
   --telegram-api-base نشانی نشانی پراکسی معکوس Bot API تلگرام (برای سرورهای داخل ایران که api.telegram.org بسته است)
+  --env production|staging  محیط: production (پیش‌فرض، /opt/cafino) یا staging (آزمایشی، /opt/cafino-staging، پورت 8081، ربات‌ها خاموش، دیتابیس جدا).
+                            ابتدا production را نصب کنید؛ staging از همان Caddy و شبکهٔ cafino-edge استفاده می‌کند.
   --dir مسیر                مسیر نصب (پیش‌فرض /opt/cafino؛ وقتی از داخل مخزن اجرا شود همان مخزن به کار می‌رود)
   --branch شاخه             شاخهٔ دریافت سورس (پیش‌فرض main)
   --rebuild                 ساخت دوبارهٔ برنامه حتی اگر نسخه عوض نشده
@@ -122,7 +125,8 @@ parse_args() {
       --email) EMAIL="${2:-}"; shift 2 ;;              --email=*) EMAIL="${1#*=}"; shift ;;
       --telegram-api-base) TG_BASE="${2:-}"; shift 2 ;; --telegram-api-base=*) TG_BASE="${1#*=}"; shift ;;
       --ssh-port) SSH_PORT="${2:-}"; shift 2 ;;        --ssh-port=*) SSH_PORT="${1#*=}"; shift ;;
-      --dir) DIR="${2:-}"; shift 2 ;;                  --dir=*) DIR="${1#*=}"; shift ;;
+      --dir) DIR="${2:-}"; DIR_SET=1; shift 2 ;;          --dir=*) DIR="${1#*=}"; DIR_SET=1; shift ;;
+      --env) TARGET_ENV="${2:-}"; shift 2 ;;           --env=*) TARGET_ENV="${1#*=}"; shift ;;
       --branch) BRANCH="${2:-}"; shift 2 ;;            --branch=*) BRANCH="${1#*=}"; shift ;;
       --no-tls) NO_TLS=1; shift ;;     --no-proxy) NO_PROXY=1; shift ;;   --no-firewall) NO_FIREWALL=1; shift ;;
       --with-clamav) WITH_CLAMAV=1; shift ;;           --rebuild) REBUILD=1; shift ;;
@@ -136,6 +140,14 @@ parse_args() {
   DOMAIN="$(printf '%s' "$DOMAIN" | tr 'A-Z' 'a-z')"
   case "$SSH_PORT" in ""|*[!0-9]*) [ -z "$SSH_PORT" ] || die "--ssh-port باید عدد باشد" ;; esac
   case "$BRANCH" in *[!A-Za-z0-9._/-]*|"") die "نام شاخه نامعتبر است" ;; esac
+  case "$TARGET_ENV" in production|staging) ;; *) die "--env باید production یا staging باشد" ;; esac
+  if [ "$TARGET_ENV" = staging ] && [ "$DIR_SET" = 0 ] && [ -z "${CAFINO_DIR:-}" ]; then DIR=/opt/cafino-staging; fi
+}
+
+# متغیرهای وابسته به محیط (production | staging). production: نام پروژهٔ compose «server» (volume: server_dbdata) و پورت 8080.
+env_vars() {
+  if [ "$TARGET_ENV" = staging ]; then PROJECT="cafino-staging"; WEB_PORT=8081; EDGE_ALIAS="cafino-staging-web"; BACKUP_DIR_ENV="/var/backups/cafino-staging"
+  else PROJECT="server"; WEB_PORT=8080; EDGE_ALIAS="cafino-prod-web"; BACKUP_DIR_ENV="/var/backups/cafino"; fi
 }
 
 # اعتبارسنجی ورودی‌ها (بدون تغییر در سیستم)؛ در صورت نبودن مقدار، اگر ترمینال باشد می‌پرسد
@@ -159,7 +171,9 @@ validate_inputs() {
 locate_source() {
   local self="${BASH_SOURCE[0]:-}" here=""
   if [ -n "$self" ] && [ -f "$self" ]; then here="$(cd "$(dirname "$self")/../.." 2>/dev/null && pwd || true)"; fi
-  if [ -n "$here" ] && [ -f "$here/package.json" ] && [ -f "$here/server/docker-compose.yml" ]; then SRC="$here"; else SRC="$DIR"; fi
+  # staging هرگز از سورس/پوشهٔ production استفاده نمی‌کند (حتی اگر اسکریپت از آنجا اجرا شود): همیشه پوشهٔ خودش ($DIR = /opt/cafino-staging)
+  if [ "$TARGET_ENV" != staging ] && [ -n "$here" ] && [ -f "$here/package.json" ] && [ -f "$here/server/docker-compose.yml" ]; then SRC="$here"; else SRC="$DIR"; fi
+  if [ "$TARGET_ENV" = staging ] && [ "$SRC" = "$PROD_DIR" ]; then die "مسیر staging نباید با production یکی باشد ($SRC)؛ --dir دیگری بدهید"; fi
   SRV="$SRC/server"; ENV_FILE="$SRV/.env"; LOCAL_DIR="$SRV/deploy/local"
 }
 
@@ -181,8 +195,15 @@ fetch_source() {
     ok "سورس موجود است ($SRC)"
   else
     [ "$UPDATE" = 0 ] || die "نصب موجودی در $SRC پیدا نشد"
-    log "دریافت سورس از $CAFINO_REPO (شاخه $BRANCH)…"
     mkdir -p "$(dirname "$SRC")"
+    if [ "$TARGET_ENV" = staging ] && [ -d "$PROD_DIR/.git" ]; then
+      # بدون توکن و اینترنت: سورس staging از روی کپیِ production کلون محلی می‌شود (نشانی origin همان نشانی GitHub می‌ماند)
+      log "ساخت سورس staging از روی production ($PROD_DIR)…"
+      git clone -q --no-hardlinks "$PROD_DIR" "$SRC" && git -C "$SRC" remote set-url origin "$(git -C "$PROD_DIR" remote get-url origin)" \
+        || die "کلون محلی staging شکست خورد"
+      ok "سورس: $(git -C "$SRC" rev-parse --short HEAD)"; return 0
+    fi
+    log "دریافت سورس از $CAFINO_REPO (شاخه $BRANCH)…"
     git_auth clone --depth 1 --branch "$BRANCH" "$CAFINO_REPO" "$SRC" \
       || die "clone شکست خورد. مخزن خصوصی است؟ GITHUB_TOKEN=… را بدهید (توکن فقط‌خواندنی)، یا سورس را خودتان در $SRC باز کنید و دوباره اجرا کنید."
     ok "سورس: $(git -C "$SRC" rev-parse --short HEAD)"
@@ -202,7 +223,10 @@ preflight() {
   case "$(uname -m)" in x86_64|aarch64) ;; *) die "معماری $(uname -m) پشتیبانی نمی‌شود (x86_64 یا aarch64)" ;; esac
   local free_mb; free_mb="$(df -Pm / | awk 'NR==2{print $4}')"
   [ "${free_mb:-0}" -ge 8000 ] || die "فضای خالی دیسک کم است (${free_mb}MB؛ دست‌کم ۸ گیگابایت لازم است)"
-  if [ "$UPDATE" = 0 ] && [ "$NO_PROXY" = 0 ]; then
+  if [ "$UPDATE" = 0 ] && [ "$NO_PROXY" = 0 ] && [ "$TARGET_ENV" = staging ]; then
+    docker ps --format '{{.Names}}' 2>/dev/null | grep -qx 'cafino-caddy' || [ -d "$PROD_DIR/server/deploy/local" ] \
+      || die "Staging از Caddy و شبکهٔ production استفاده می‌کند؛ ابتدا production را نصب کنید (یا --no-proxy و پراکسی خودتان)."
+  elif [ "$UPDATE" = 0 ] && [ "$NO_PROXY" = 0 ]; then
     if ! docker ps --format '{{.Names}}' 2>/dev/null | grep -qx 'cafino-caddy'; then
       local p
       for p in 80 443; do
@@ -245,7 +269,7 @@ check_dns() {
 install_packages() {
   log "نصب بسته‌های پایه…"
   apt-get update -y >/dev/null
-  apt-get install -y --no-install-recommends ca-certificates curl gnupg git ufw openssl logrotate cron iproute2 >/dev/null
+  apt-get install -y --no-install-recommends ca-certificates curl gnupg git ufw openssl logrotate cron iproute2 rsync >/dev/null
   ok "بسته‌های پایه آماده است"
 }
 
@@ -288,8 +312,8 @@ public_host() {
 write_env() {
   PUBLIC_HOST="$(public_host)"
   if [ ! -f "$ENV_FILE" ]; then
-    if docker volume inspect server_dbdata >/dev/null 2>&1; then
-      die "پایگاه‌دادهٔ قبلی (volume: server_dbdata) هست ولی $ENV_FILE نیست؛ رمز آن گم شده. فایل .env قبلی را برگردانید (یا اگر داده را نمی‌خواهید: docker volume rm server_dbdata — همهٔ داده‌ها پاک می‌شود)."
+    if docker volume inspect "${PROJECT}_dbdata" >/dev/null 2>&1; then
+      die "پایگاه‌دادهٔ قبلی (volume: ${PROJECT}_dbdata) هست ولی $ENV_FILE نیست؛ رمز آن گم شده. فایل .env قبلی را برگردانید (یا اگر داده را نمی‌خواهید: docker volume rm ${PROJECT}_dbdata — همهٔ داده‌ها پاک می‌شود)."
     fi
     (umask 077; cp "$SRV/.env.example" "$ENV_FILE")
     log "ساخت $ENV_FILE با رازهای تصادفی…"
@@ -300,6 +324,11 @@ write_env() {
   ensure_secret APP_DB_PASSWORD rand_hex 24 || true
   ensure_secret BOT_TOKEN_KEY rand_hex 32 || true
   set_env NODE_ENV production
+  set_env CAFINO_ENV "$TARGET_ENV"
+  set_env COMPOSE_PROJECT_NAME "$PROJECT"
+  set_env WEB_PORT "$WEB_PORT"
+  [ -n "$(get_env CAFINO_API_TAG)" ] || set_env CAFINO_API_TAG local   # برچسب ایمیج API؛ انتشار CI آن را عوض می‌کند (deploy.sh)
+  if [ "$TARGET_ENV" = staging ]; then set_env BOTS_ENABLED false; set_env MINIAPP_BOT_TOKEN ""; fi   # ربات‌های واقعی فقط در production polling کنند (یک توکن = یک سرور؛ در staging توکن واقعی وارد نکنید)
   set_env TRUST_PROXY 1
   set_env ALLOW_REGISTRATION false
   if [ "$NO_TLS" = 1 ]; then set_env COOKIE_SECURE false; else set_env COOKIE_SECURE true; fi
@@ -310,66 +339,97 @@ write_env() {
   ok ".env آماده است (دسترسی 600)"
 }
 
+ensure_edge_network() { docker network inspect "$EDGE_NET" >/dev/null 2>&1 || docker network create "$EDGE_NET" >/dev/null; }
+
+# Caddy فقط یک‌بار (کنار production) اجرا می‌شود و با «شبکهٔ لبه» cafino-edge به nginx هر محیط می‌رسد؛ هر محیط یک قطعهٔ سایت در deploy/local/sites.d دارد.
+caddy_site() {  # caddy_site دامنه|:80 نام‌مستعار [noindex]
+  local site="$1" alias="$2" noindex="${3:-}"
+  printf '%s {\n\tencode zstd gzip\n' "$site"
+  [ "$site" = ":80" ] || printf '\theader Strict-Transport-Security "max-age=31536000; includeSubDomains"\n'
+  [ -z "$noindex" ] || printf '\theader X-Robots-Tag "noindex, nofollow"\n'
+  printf '\treverse_proxy %s:80\n}\n' "$alias"
+}
+
 write_local_files() {
-  mkdir -p "$LOCAL_DIR"
+  mkdir -p "$LOCAL_DIR/sites.d"
   if [ "$NO_PROXY" = 1 ]; then
     rm -f "$SRV/docker-compose.override.yml" "$LOCAL_DIR/Caddyfile" "$LOCAL_DIR/trusted-proxies.conf"
-    ok "بدون Caddy: پراکسی HTTPS خودتان را به 127.0.0.1:8080 وصل کنید (و آدرسش را در deploy/trusted-proxies.conf بنویسید)"
+    ok "بدون Caddy: پراکسی HTTPS خودتان را به 127.0.0.1:$WEB_PORT وصل کنید (و آدرسش را در deploy/trusted-proxies.conf بنویسید)"
     return 0
   fi
+  ensure_edge_network
   # فقط پراکسی داخل شبکهٔ docker مورد اعتماد است (Caddy همین بسته)؛ هیچ X-Forwarded-For بیرونی پذیرفته نمی‌شود
   cat >"$LOCAL_DIR/trusted-proxies.conf" <<'EOF'
 # ساخته‌شده توسط install.sh — پراکسی مورد اعتماد = Caddy داخل شبکهٔ docker همین بسته
 set_real_ip_from 172.16.0.0/12;
 set_real_ip_from 192.168.0.0/16;
 EOF
-  if [ "$NO_TLS" = 1 ]; then
-    cat >"$LOCAL_DIR/Caddyfile" <<'EOF'
-# بدون TLS (فقط آزمایش)
-{
-	auto_https off
-}
-:80 {
-	encode zstd gzip
-	reverse_proxy web:80
-}
-EOF
-  else
+  local site; if [ "$NO_TLS" = 1 ]; then site=":80"; else site="$DOMAIN"; fi
+  if [ "$TARGET_ENV" = production ]; then
     {
-      if [ -n "$EMAIL" ]; then printf '{\n\temail %s\n}\n' "$EMAIL"; fi
-      printf '%s {\n\tencode zstd gzip\n\theader Strict-Transport-Security "max-age=31536000; includeSubDomains"\n\treverse_proxy web:80\n}\n' "$DOMAIN"
+      printf '# ساخته‌شده توسط install.sh — قطعه‌های هر محیط در sites.d\n{\n'
+      [ "$NO_TLS" = 0 ] && [ -n "$EMAIL" ] && printf '\temail %s\n' "$EMAIL"
+      [ "$NO_TLS" = 1 ] && printf '\tauto_https off\n'
+      printf '}\nimport /etc/caddy/sites.d/*.caddy\n'
     } >"$LOCAL_DIR/Caddyfile"
-  fi
-  cat >"$SRV/docker-compose.override.yml" <<'EOF'
-# ساخته‌شدهٔ install.sh (خارج از git) — HTTPS خودکار با Caddy جلوی nginx بسته
+    caddy_site "$site" "$EDGE_ALIAS" >"$LOCAL_DIR/sites.d/prod.caddy"
+    cat >"$SRV/docker-compose.override.yml" <<'EOF'
+# ساخته‌شدهٔ install.sh (خارج از git) — HTTPS خودکار با Caddy؛ Caddy و nginx از طریق شبکهٔ مشترک cafino-edge به هم می‌رسند
 services:
   web:
     volumes:
       - ./deploy/local/trusted-proxies.conf:/etc/nginx/trusted-proxies.conf:ro
+    networks:
+      internal: {}
+      edge: { aliases: [cafino-prod-web] }
   caddy:
-    image: caddy:2-alpine
+    image: ${CADDY_IMAGE:-caddy:2-alpine}
     container_name: cafino-caddy
     restart: unless-stopped
     ports: ["80:80", "443:443"]
     volumes:
       - ./deploy/local/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./deploy/local/sites.d:/etc/caddy/sites.d:ro
       - caddy_data:/data
       - caddy_config:/config
-    depends_on: [web]
+    security_opt: ["no-new-privileges:true"]
+    depends_on: { web: { condition: service_healthy } }
     logging: { driver: json-file, options: { max-size: "10m", max-file: "3" } }
-    networks: [internal]
+    networks: [edge]
+networks:
+  edge: { external: true, name: cafino-edge }
 volumes:
   caddy_data:
   caddy_config:
 EOF
-  ok "Caddy و پیکربندی پراکسی نوشته شد"
+  else
+    cat >"$SRV/docker-compose.override.yml" <<'EOF'
+# ساخته‌شدهٔ install.sh (staging) — فقط به شبکهٔ لبهٔ production وصل می‌شود؛ Caddy همان production است
+services:
+  web:
+    volumes:
+      - ./deploy/local/trusted-proxies.conf:/etc/nginx/trusted-proxies.conf:ro
+    networks:
+      internal: {}
+      edge: { aliases: [cafino-staging-web] }
+networks:
+  edge: { external: true, name: cafino-edge }
+EOF
+    if [ -d "$PROD_DIR/server/deploy/local" ]; then
+      mkdir -p "$PROD_DIR/server/deploy/local/sites.d"
+      caddy_site "$site" "$EDGE_ALIAS" noindex >"$PROD_DIR/server/deploy/local/sites.d/staging.caddy"
+      docker exec cafino-caddy caddy reload --config /etc/caddy/Caddyfile >/dev/null 2>&1 && ok "Caddy production برای staging بارگذاری مجدد شد" \
+        || warn "reload Caddy ممکن نشد؛ دستی:  docker exec cafino-caddy caddy reload --config /etc/caddy/Caddyfile"
+    else warn "پوشهٔ production ($PROD_DIR) پیدا نشد؛ قطعهٔ Caddy را دستی بسازید:  $(caddy_site "$site" "$EDGE_ALIAS" noindex | tr '\n' ' ')"; fi
+  fi
+  ok "Caddy و پیکربندی پراکسی نوشته شد ($TARGET_ENV)"
 }
 
 # ── راه‌اندازی ───────────────────────────────────────────────────────────────
 wait_healthy() {
   log "منتظر آماده‌شدن سرویس‌ها (مهاجرت‌های پایگاه‌داده در اولین بار)…"
   for _ in $(seq 1 90); do
-    if curl -fsS --max-time 3 http://127.0.0.1:8080/healthz >/dev/null 2>&1; then
+    if curl -fsS --max-time 3 "http://127.0.0.1:$WEB_PORT/healthz" >/dev/null 2>&1; then
       if dc exec -T api node -e 'fetch("http://127.0.0.1:8080/readyz").then(r=>r.text()).then(t=>{process.stdout.write(t);process.exit(t.includes("\"ok\":true")?0:1)}).catch(()=>process.exit(1))' >/dev/null 2>&1; then ok "سرویس‌ها سالم‌اند"; return 0; fi
     fi
     sleep 2
@@ -386,6 +446,7 @@ start_stack() {
 
 create_admin() {
   local marker="$LOCAL_DIR/admin-created" cred="/root/cafino-credentials.txt"
+  [ "$TARGET_ENV" = staging ] && cred="/root/cafino-credentials-staging.txt"
   if [ -f "$marker" ] && [ "$RESET_ADMIN" = 0 ]; then ok "مدیر پنل مرکزی قبلاً ساخته شده ($(cat "$marker")؛ برای بازنشانی رمز: --reset-admin)"; return 0; fi
   if [ -z "$ADMIN_PASSWORD" ]; then ADMIN_PASSWORD="$(gen_password)"; GENERATED_PW=1; fi
   log "ساخت مدیر پنل مرکزی ($ADMIN_EMAIL)…"
@@ -401,6 +462,7 @@ create_admin() {
 }
 
 setup_firewall() {
+  [ "$TARGET_ENV" = production ] || return 0
   [ "$NO_FIREWALL" = 0 ] || { warn "فایروال دست نخورد (--no-firewall)"; return 0; }
   local ports p; ports="$SSH_PORT"
   [ -n "$ports" ] || ports="$(ss -H -ltnp 2>/dev/null | awk '/"sshd"/ {n=split($4,a,":"); print a[n]}' | sort -u | tr '\n' ' ')"
@@ -413,20 +475,49 @@ setup_firewall() {
   ok "ufw فعال است (PostgreSQL و API هرگز بیرون منتشر نمی‌شوند)"
 }
 
+# رمز عبور رمزنگاری پشتیبان‌ها: فقط روی سرور و در /etc/cafino/backup.pass (۶۰۰)؛ هرگز بازتولید/بازنویسی نمی‌شود.
+# بدون آن، پشتیبان‌های رمزشده قابل بازیابی نیستند ← یک نسخه را جای امن (مدیر رمز/کاغذ) نگه دارید.
+ensure_backup_pass() {
+  mkdir -p /etc/cafino; chmod 750 /etc/cafino
+  if [ ! -s /etc/cafino/backup.pass ]; then (umask 077; openssl rand -base64 33 | tr -d '\n' >/etc/cafino/backup.pass); NEW_BACKUP_PASS=1; fi
+  chmod 600 /etc/cafino/backup.pass
+  if [ ! -f /etc/cafino/notify.env ]; then
+    (umask 077; cat >/etc/cafino/notify.env <<'EOF'
+# اعلان خرابی/شکست پشتیبان (deploy/notify.sh). هر کدام را که می‌خواهید پر کنید؛ خالی = غیرفعال.
+# بله (داخل ایران مستقیم کار می‌کند):  توکن ربات از @botfather بله، و شناسهٔ چت خودتان
+NOTIFY_BALE_TOKEN=
+NOTIFY_BALE_CHAT=
+# تلگرام (در ایران معمولاً فقط با پراکسی):  NOTIFY_TELEGRAM_API_BASE=https://پراکسی-شما
+NOTIFY_TELEGRAM_TOKEN=
+NOTIFY_TELEGRAM_CHAT=
+NOTIFY_TELEGRAM_API_BASE=https://api.telegram.org
+# وب‌هوک عمومی (ntfy، Slack، Mattermost…): یک POST با متن ساده
+NOTIFY_WEBHOOK_URL=
+# عنوان پیام‌ها
+NOTIFY_HOST_LABEL=
+EOF
+)
+  fi
+}
+
 setup_cron() {
-  log "پشتیبان‌گیری روزانه و پایش سلامت…"
-  mkdir -p /var/backups/cafino; chmod 700 /var/backups/cafino
+  [ "$TARGET_ENV" = production ] || return 0
+  log "پشتیبان‌گیری روزانه (دیتابیس + فایل‌های آپلود + تنظیمات، رمزنگاری‌شده)، تمرین بازیابی هفتگی و پایش سلامت…"
+  ensure_backup_pass
+  mkdir -p "$BACKUP_DIR_ENV"; chmod 700 "$BACKUP_DIR_ENV"
   touch /var/log/cafino-backup.log /var/log/cafino-health.log
   cat >/etc/cron.d/cafino <<EOF
 # ساخته‌شده توسط install.sh
 SHELL=/bin/sh
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+# OFFSITE_CMD (انتقال به بیرون از سرور) را همین‌جا قبل از /bin/sh بگذارید، مثلاً:  OFFSITE_CMD='rclone copy "\$1" remote:cafino-backups/'
 0 3 * * * root /bin/sh $SRV/deploy/backup.sh >> /var/log/cafino-backup.log 2>&1
-*/5 * * * * root /bin/sh $SRV/deploy/healthcheck.sh >> /var/log/cafino-health.log 2>&1 || true
+30 4 * * 0 root /bin/sh $SRV/deploy/restore.sh --latest >> /var/log/cafino-backup.log 2>&1
+*/5 * * * * root /bin/sh $SRV/deploy/monitor.sh >> /var/log/cafino-health.log 2>&1
 EOF
   chmod 644 /etc/cron.d/cafino
   install -m 644 "$SRV/deploy/logrotate-cafino" /etc/logrotate.d/cafino 2>/dev/null || true
-  if /bin/sh "$SRV/deploy/backup.sh" >>/var/log/cafino-backup.log 2>&1; then ok "نخستین پشتیبان گرفته شد (/var/backups/cafino)"; else warn "نخستین پشتیبان ناموفق بود؛ /var/log/cafino-backup.log را ببینید"; fi
+  if /bin/sh "$SRV/deploy/backup.sh" >>/var/log/cafino-backup.log 2>&1; then ok "نخستین پشتیبان گرفته شد ($BACKUP_DIR_ENV)"; else warn "نخستین پشتیبان ناموفق بود؛ /var/log/cafino-backup.log را ببینید"; fi
 }
 
 # ── بررسی نهایی ──────────────────────────────────────────────────────────────
@@ -438,9 +529,9 @@ smoke() {
   log "بررسی نهایی…"
   FAILS=0
   local svc; for svc in db api web; do chk "سرویس $svc در حال اجراست" bash -c "cd '$SRV' && docker compose ps --status running --services | grep -qx $svc"; done
-  chk "healthz (داخلی)" curl -fsS --max-time 5 http://127.0.0.1:8080/healthz
-  chk "صفحهٔ برنامه" bash -c "curl -fsS --max-time 8 http://127.0.0.1:8080/ | grep -qi '<div id=\"root\"\\|<title'"
-  chk "مینی‌اپ (/m/) از API می‌آید و CSP اختصاصی دارد" bash -c "curl -fsS --max-time 8 -D - -o /dev/null http://127.0.0.1:8080/m/ | tr 'A-Z' 'a-z' | grep -q 'frame-ancestors'"
+  chk "healthz (داخلی)" curl -fsS --max-time 5 "http://127.0.0.1:$WEB_PORT/healthz"
+  chk "صفحهٔ برنامه" bash -c "curl -fsS --max-time 8 http://127.0.0.1:$WEB_PORT/ | grep -qi '<div id=\"root\"\\|<title'"
+  chk "مینی‌اپ (/m/) از API می‌آید و CSP اختصاصی دارد" bash -c "curl -fsS --max-time 8 -D - -o /dev/null http://127.0.0.1:$WEB_PORT/m/ | tr 'A-Z' 'a-z' | grep -q 'frame-ancestors'"
   if [ "$NO_PROXY" = 0 ]; then
     if [ "$NO_TLS" = 1 ]; then chk "دسترسی از بیرون (http)" curl -fsS --max-time 8 http://127.0.0.1/healthz
     else
@@ -455,7 +546,10 @@ smoke() {
 
 print_summary() {
   local url="$SCHEME://$PUBLIC_HOST"
-  printf '\n%s════════════════ کافینو نصب شد ════════════════%s\n' "$c_grn" "$c_off"
+  printf '\n%s════════════════ کافینو نصب شد (%s) ════════════════%s\n' "$c_grn" "$TARGET_ENV" "$c_off"
+  if [ "${NEW_BACKUP_PASS:-0}" = 1 ]; then
+    printf '\n%s⚠ رمز رمزنگاری پشتیبان‌ها (فقط همین‌بار نمایش داده می‌شود؛ همین حالا یک نسخه جای امن بگذارید):%s\n  %s\n  (فایل: /etc/cafino/backup.pass — بدون این رمز، پشتیبان‌ها قابل بازیابی نیستند)\n\n' "$c_yel" "$c_off" "$(cat /etc/cafino/backup.pass)"
+  fi
   printf '  نشانی:           %s\n' "$url"
   printf '  مینی‌اپ:         %s/m/\n' "$url"
   printf '  مدیر پنل مرکزی:  %s\n' "$ADMIN_EMAIL"
@@ -467,8 +561,9 @@ print_summary() {
    ۲) مینی‌اپ تلگرام/بله: برنامه ← تنظیمات ← اتصال ← «مینی‌اپ تلگرام / بله» (توکن ربات هر کافی‌نت).
       $( [ -n "$TG_BASE" ] && echo "پراکسی تلگرام تنظیم شده است ($TG_BASE)." || echo "اگر سرور داخل ایران است و api.telegram.org بسته است: با --telegram-api-base <پراکسی> دوباره اجرا کنید." )
    ۳) ایمیل بازیابی رمز: SMTP_URL و MAIL_FROM را در $ENV_FILE بنویسید، سپس:  cd $SRV && docker compose up -d
-   ۴) پشتیبان بیرون از سرور (ضروری): در /etc/cron.d/cafino، در خط پشتیبان قبل از /bin/sh بنویسید  OFFSITE_CMD='rclone copy "\$1" remote:cafino-backups/'  (راهنما: server/DEPLOY-UBUNTU-fa.md).
-   ۵) به‌روزرسانی نسخهٔ بعد:  sudo bash $SRV/deploy/update.sh
+   ۴) پشتیبان بیرون از سرور (ضروری): در /etc/cron.d/cafino، در خط پشتیبان قبل از /bin/sh بنویسید  OFFSITE_CMD='rclone copy "\$1" remote:cafino-backups/'  (راهنما: DEPLOYMENT_FA.md §۱۴).
+   ۵) اعلان خرابی/شکست پشتیبان: /etc/cafino/notify.env را پر کنید (بله/تلگرام/وب‌هوک).
+   ۶) انتشار خودکار از GitHub: sudo bash $SRV/deploy/harden.sh --ci-key «کلید عمومی» (DEPLOYMENT_FA.md §۱۱). به‌روزرسانی دستی: sudo bash $SRV/deploy/update.sh
   گزارش نصب: $INSTALL_LOG      دسترسی راه دور: ssh به سرور ← cd $SRV && docker compose ps
 EOF
 }
@@ -476,12 +571,13 @@ EOF
 print_plan() {
   cat <<EOF
 طرح کار (--dry-run؛ هیچ تغییری داده نمی‌شود)
+  محیط:            $TARGET_ENV  (پروژهٔ compose: $PROJECT، پورت داخلی nginx: $WEB_PORT)
   حالت:            $([ "$UPDATE" = 1 ] && echo "به‌روزرسانی" || echo "نصب")
   مسیر سورس:       $SRC  (شاخه $BRANCH)
   دامنه/نشانی:     ${DOMAIN:-$(public_host)}  ($SCHEME)
   مدیر:            ${ADMIN_EMAIL:-—}
-  Caddy/HTTPS:     $([ "$NO_PROXY" = 1 ] && echo "نصب نمی‌شود" || ([ "$NO_TLS" = 1 ] && echo "HTTP بدون TLS" || echo "HTTPS خودکار (Let's Encrypt)"))
-  فایروال ufw:     $([ "$NO_FIREWALL" = 1 ] && echo "دست نمی‌خورد" || echo "SSH + 80 + 443")
+  Caddy/HTTPS:     $([ "$TARGET_ENV" = staging ] && echo "Caddy production (قطعهٔ sites.d/staging.caddy)" || ([ "$NO_PROXY" = 1 ] && echo "نصب نمی‌شود" || ([ "$NO_TLS" = 1 ] && echo "HTTP بدون TLS" || echo "HTTPS خودکار (Let's Encrypt)")))
+  فایروال ufw:     $([ "$NO_FIREWALL" = 1 ] || [ "$TARGET_ENV" = staging ] && echo "دست نمی‌خورد" || echo "SSH + 80 + 443")
   ClamAV:          $([ "$WITH_CLAMAV" = 1 ] && echo "بله" || echo "خیر")
   پراکسی تلگرام:   ${TG_BASE:-—}
 مراحل: بررسی سیستم ← بسته‌های پایه ← Docker ← دریافت سورس ← ساخت برنامه (در کانتینر Node) ← .env با رازهای تصادفی
@@ -492,6 +588,8 @@ EOF
 main() {
   parse_args "$@"
   locate_source
+  if [ "$UPDATE" = 1 ] && [ -f "$ENV_FILE" ]; then TARGET_ENV="$(get_env CAFINO_ENV)"; TARGET_ENV="${TARGET_ENV:-production}"; fi
+  env_vars
   validate_inputs
   if [ "$DRY_RUN" = 1 ]; then print_plan; return 0; fi
   : >>"$INSTALL_LOG" 2>/dev/null || INSTALL_LOG=/tmp/cafino-install.log
@@ -504,14 +602,16 @@ main() {
     preflight
     [ -f "$ENV_FILE" ] || die "نصب موجودی پیدا نشد ($ENV_FILE). ابتدا install.sh را اجرا کنید."
     PUBLIC_HOST="$(get_env PUBLIC_BASE_URL)"; PUBLIC_HOST="${PUBLIC_HOST#*://}"
-    DOMAIN="$(grep -m1 -E '^[a-z0-9.-]+ \{' "$LOCAL_DIR/Caddyfile" 2>/dev/null | cut -d' ' -f1 || true)"
+    DOMAIN="$PUBLIC_HOST"; valid_domain "$DOMAIN" || DOMAIN=""
     [ "$(get_env COOKIE_SECURE)" = false ] && { NO_TLS=1; SCHEME=http; }
     [ -f "$SRV/docker-compose.override.yml" ] || NO_PROXY=1
     if [ "$SKIP_BACKUP" = 0 ]; then log "پشتیبان پیش از به‌روزرسانی…"; /bin/sh "$SRV/deploy/backup.sh" || die "پشتیبان ناموفق بود؛ به‌روزرسانی انجام نشد (داده‌ها دست‌نخورده‌اند). با --skip-backup رد می‌شود (توصیه نمی‌شود)."; fi
     fetch_source
     ensure_swap
     build_pwa
+    set_env CAFINO_API_TAG local     # به‌روزرسانی دستی روی خود سرور می‌سازد؛ انتشار CI (deploy.sh) برچسب نسخه می‌گذارد
     start_stack
+    dc exec -T web nginx -s reload >/dev/null 2>&1 || true   # nginx نشانی تازهٔ api را دوباره resolve کند
     smoke
     [ "$FAILS" = 0 ] && ok "به‌روزرسانی کامل شد" || die "به‌روزرسانی انجام شد ولی $FAILS بررسی ناموفق بود (بالا را ببینید)"
     return 0

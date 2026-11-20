@@ -23,6 +23,7 @@ services:
 
   api:
     build: .
+    image: cafino-api:${CAFINO_API_TAG:-local}   # local = ساخت روی همین سرور (install/update.sh)؛ در انتشار CI برچسب نسخه (deploy.sh) تا بازگشت به نسخهٔ قبل ممکن باشد
     restart: unless-stopped
     env_file: .env
     volumes:
@@ -59,7 +60,8 @@ services:
   web:
     image: nginx:1.27-alpine
     restart: unless-stopped
-    depends_on: [api]
+    depends_on: { api: { condition: service_healthy } }
+    security_opt: ["no-new-privileges:true"]
     ports: ["${WEB_BIND:-127.0.0.1}:${WEB_PORT:-8080}:80"]
     logging: *logging
     healthcheck: { test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/healthz >/dev/null || exit 1"], interval: 30s, timeout: 4s, retries: 3, start_period: 15s }

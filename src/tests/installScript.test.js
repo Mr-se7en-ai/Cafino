@@ -55,19 +55,33 @@ test("رمز تولیدی مدیر قوی است و اعتبارسنجی دام�
   for (const p of pws) assert.match(p, /^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)[A-Za-z0-9]{20}$/);
   assert.ok(r.stdout.includes("D1") && r.stdout.includes("D0") && r.stdout.includes("E1"));
 });
-test("پیکربندی Caddy/override تولیدی: دامنه، HSTS، پراکسی مورد اعتماد؛ بدون TLS و بدون دامنه هم معتبر", () => {
+const NOEDGE = "ensure_edge_network() { :; }; env_vars;";   // بدون daemon دوکر: ساخت شبکهٔ cafino-edge حذف می‌شود
+test("پیکربندی Caddy/override تولیدی: دامنه، HSTS، پراکسی مورد اعتماد، شبکهٔ لبه؛ بدون TLS و بدون دامنه هم معتبر", () => {
   const d = mkdtempSync(join(tmpdir(), "cafino-loc-"));
-  const r = lib(`SRV="${d}" LOCAL_DIR="${d}/local" DOMAIN=cafino.example.ir EMAIL=a@b.co NO_PROXY=0 NO_TLS=0; write_local_files >/dev/null; cat "$LOCAL_DIR/Caddyfile"`);
-  assert.match(r.stdout, /^\{\n\temail a@b\.co\n\}\ncafino\.example\.ir \{/);
+  const r = lib(`${NOEDGE} SRV="${d}" LOCAL_DIR="${d}/local" DOMAIN=cafino.example.ir EMAIL=a@b.co NO_PROXY=0 NO_TLS=0; write_local_files >/dev/null; cat "$LOCAL_DIR/Caddyfile"; echo ---; cat "$LOCAL_DIR/sites.d/prod.caddy"`);
+  assert.match(r.stdout, /^# [^\n]*\n\{\n\temail a@b\.co\n\}\nimport \/etc\/caddy\/sites\.d\/\*\.caddy/);
+  assert.match(r.stdout, /cafino\.example\.ir \{/);
   assert.match(r.stdout, /Strict-Transport-Security/);
-  assert.match(r.stdout, /reverse_proxy web:80/);
+  assert.match(r.stdout, /reverse_proxy cafino-prod-web:80/);
   const ov = rf(join(d, "docker-compose.override.yml"), "utf8");
   assert.match(ov, /caddy:2-alpine/); assert.match(ov, /"80:80", "443:443"/); assert.match(ov, /trusted-proxies\.conf:\/etc\/nginx\/trusted-proxies\.conf/);
+  assert.match(ov, /external: true, name: cafino-edge/); assert.match(ov, /aliases: \[cafino-prod-web\]/);
   assert.match(rf(join(d, "local/trusted-proxies.conf"), "utf8"), /set_real_ip_from 172\.16\.0\.0\/12;/);
-  const r2 = lib(`SRV="${d}" LOCAL_DIR="${d}/local" NO_PROXY=0 NO_TLS=1; write_local_files >/dev/null; cat "$LOCAL_DIR/Caddyfile"`);
+  const r2 = lib(`${NOEDGE} SRV="${d}" LOCAL_DIR="${d}/local" NO_PROXY=0 NO_TLS=1; write_local_files >/dev/null; cat "$LOCAL_DIR/Caddyfile"`);
   assert.match(r2.stdout, /auto_https off/);
-  lib(`SRV="${d}" LOCAL_DIR="${d}/local" NO_PROXY=1; write_local_files >/dev/null`);
+  lib(`${NOEDGE} SRV="${d}" LOCAL_DIR="${d}/local" NO_PROXY=1; write_local_files >/dev/null`);
   assert.throws(() => rf(join(d, "docker-compose.override.yml")), /ENOENT/);   // --no-proxy: override حذف می‌شود
+});
+test("staging: پروژه/پورت/نام‌مستعار جدا، Caddy جدا نمی‌سازد و قطعهٔ noindex کنار production می‌نویسد", () => {
+  const d = mkdtempSync(join(tmpdir(), "cafino-stg-"));
+  const prod = join(d, "opt-cafino"); spawnSync("mkdir", ["-p", join(prod, "server/deploy/local")]);
+  const r = lib(`${NOEDGE} CAFINO_ENV=staging TARGET_ENV=staging; env_vars; echo "$PROJECT $WEB_PORT $EDGE_ALIAS $BACKUP_DIR_ENV"; SRV="${d}/s" LOCAL_DIR="${d}/s/local" PROD_DIR="${prod}" DOMAIN=staging.example.ir NO_PROXY=0 NO_TLS=0; mkdir -p "$SRV"; docker(){ :; }; write_local_files >/dev/null; cat "${d}/s/docker-compose.override.yml"; echo ---; cat "${prod}/server/deploy/local/sites.d/staging.caddy"`);
+  assert.match(r.stdout, /^cafino-staging 8081 cafino-staging-web \/var\/backups\/cafino-staging/);
+  assert.ok(!/caddy:2-alpine/.test(r.stdout), "staging نباید Caddy دوم بالا بیاورد");
+  assert.match(r.stdout, /aliases: \[cafino-staging-web\]/);
+  assert.match(r.stdout, /staging\.example\.ir \{[\s\S]*noindex[\s\S]*reverse_proxy cafino-staging-web:80/);
+  const p = lib(`${NOEDGE} TARGET_ENV=production; env_vars; echo "$PROJECT $WEB_PORT $EDGE_ALIAS"`);
+  assert.match(p.stdout, /^server 8080 cafino-prod-web/);   // نام پروژهٔ production تغییر نکرده (volume: server_dbdata)
 });
 test("override تولیدی با docker compose config معتبر است (اگر docker CLI هست)", { skip: !has("docker") }, () => {
   const d = mkdtempSync(join(tmpdir(), "cafino-cfg-"));
@@ -75,7 +89,7 @@ test("override تولیدی با docker compose config معتبر است (اگر
   writeFileSync(join(d, ".env"), "JWT_SECRET=x\nPOSTGRES_PASSWORD=aaaaaaaaaaaaaaaaaaaa\nAPP_DB_PASSWORD=bbbbbbbbbbbbbbbbbbbb\n");
   spawnSync("mkdir", ["-p", join(d, "deploy")]);
   for (const f of ["nginx.conf", "csp.conf", "trusted-proxies.conf", "config.js"]) { try { copyFileSync(join(root, "server/deploy", f), join(d, "deploy", f)); } catch { /* اختیاری */ } }
-  lib(`SRV="${d}" LOCAL_DIR="${d}/deploy/local" DOMAIN=cafino.example.ir NO_PROXY=0 NO_TLS=0; write_local_files >/dev/null`);
+  lib(`${NOEDGE} SRV="${d}" LOCAL_DIR="${d}/deploy/local" DOMAIN=cafino.example.ir NO_PROXY=0 NO_TLS=0; write_local_files >/dev/null`);
   const r = spawnSync("docker", ["compose", "-f", "docker-compose.yml", "-f", "docker-compose.override.yml", "config", "--quiet"], { cwd: d, encoding: "utf8" });
   assert.equal(r.status, 0, r.stderr);
 });
