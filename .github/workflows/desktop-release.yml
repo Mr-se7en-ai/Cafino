@@ -83,7 +83,7 @@ jobs:
       contents: write          # فقط همین job اجازهٔ ساخت Release دارد
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with: { name: cafino-windows-x64, path: out }
       - name: ساخت GitHub Release (نسخه‌های قبلی حفظ می‌شوند)
         env:
