@@ -1,0 +1,97 @@
+# CI کافینو: هر Pull Request و هر push به main.
+#   npm ci ← بررسی نسخه ← eslint ← تست کلاینت ← تست سرور روی PostgreSQL واقعی ← دروازهٔ امنیتی وابستگی‌ها ← build ← verify:dist
+#   ← بررسی اسکریپت‌های زیرساخت (shellcheck + اعتبار compose) ← [فقط push به main] ساخت ایمیج API و «بستهٔ انتشار» (Artifact: cafino-release)
+# هر مرحله شکست بخورد، کار متوقف می‌شود و deploy.yml اجرا نمی‌شود. هیچ Secretی در این workflow استفاده نمی‌شود (برای PRهای fork هم ایمن است).
+name: CI
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}   # اجرای main هرگز نیمه‌کاره لغو نمی‌شود
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env: { POSTGRES_PASSWORD: ci-only-password }
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 12
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: "5432"
+      PGUSER: postgres
+      PGPASSWORD: ci-only-password
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            server/package-lock.json
+      - name: نصب وابستگی‌ها (npm ci)
+        run: |
+          npm ci
+          npm ci --prefix server
+      - name: بررسی هماهنگی نسخه و Node
+        run: npm run version:check
+      - name: eslint
+        run: npx eslint src server/src
+      - name: تست‌های کلاینت و زیرساخت
+        run: npm test
+      - name: تست‌های سرور (PostgreSQL واقعی)
+        working-directory: server
+        run: bash scripts/test-on-postgres.sh
+      - name: دروازهٔ امنیتی وابستگی‌ها (npm audit)
+        run: node scripts/audit-gate.mjs
+      - name: ساخت (build)
+        run: npm run build
+      - name: راستی‌آزمایی خروجی (dist)
+        run: npm run verify:dist
+      - name: بررسی اسکریپت‌های زیرساخت (shellcheck)
+        run: |
+          shellcheck -S warning -s bash server/deploy/install.sh server/deploy/harden.sh scripts/make-release.sh
+          find server/deploy -maxdepth 1 -name '*.sh' ! -name install.sh ! -name harden.sh -print0 | xargs -0 shellcheck -S warning -s sh
+      - name: اعتبار docker compose (production و staging)
+        run: |
+          cat > "$RUNNER_TEMP/ci.env" <<'ENVEOF'
+          POSTGRES_PASSWORD=ci-only
+          APP_DB_PASSWORD=ci-only-ci-only-ci-only
+          JWT_SECRET=ci-only-ci-only-ci-only-ci-only-ci-only
+          ENVEOF
+          docker compose -f server/docker-compose.yml --env-file "$RUNNER_TEMP/ci.env" config -q
+          COMPOSE_PROJECT_NAME=cafino-staging WEB_PORT=8081 docker compose -f server/docker-compose.yml --env-file "$RUNNER_TEMP/ci.env" config -q
+      - name: ساخت ایمیج API (اعتبارسنجی Dockerfile)
+        if: github.event_name == 'pull_request'
+        run: docker build -q -t cafino-api:ci server
+      - name: ساخت «بستهٔ انتشار» (ایمیج API + PWA + اسکریپت‌ها)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: bash scripts/make-release.sh release-out
+      - name: بارگذاری بستهٔ انتشار
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: cafino-release
+          path: |
+            release-out/cafino-release-*.tar.gz
+            release-out/cafino-release-*.tar.gz.sha256
+            release-out/RELEASE_ID.txt
+          retention-days: 30
+          if-no-files-found: error
+      - name: خلاصه
+        if: always()
+        run: |
+          {
+            echo "### CI — کافینو"
+            echo "- commit: \`${GITHUB_SHA::7}\`  وضعیت: **${{ job.status }}**"
+            [ -f release-out/RELEASE_ID.txt ] && echo "- بستهٔ انتشار: \`$(cat release-out/RELEASE_ID.txt)\`"
+          } >> "$GITHUB_STEP_SUMMARY"

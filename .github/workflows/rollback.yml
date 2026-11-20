@@ -1,0 +1,39 @@
+# بازگشت دستی به نسخهٔ قبلی روی سرور (Actions ← Rollback ← Run workflow). Production با تأیید Environment محافظت می‌شود.
+# اگر دیتابیس مهاجرت‌های جدیدتر از نسخهٔ قبلی دارد، rollback.sh «فقط-کد» را رد می‌کند؛ در آن حالت راهنمای DEPLOYMENT_FA.md (بازیابی از پشتیبان پیش از استقرار) را دنبال کنید.
+name: Rollback
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "محیط"
+        type: choice
+        options: [staging, production]
+        default: production
+permissions:
+  contents: read
+jobs:
+  rollback:
+    if: vars.DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-24.04
+    environment: ${{ inputs.target }}
+    concurrency: { group: "deploy-${{ inputs.target }}", cancel-in-progress: false }
+    steps:
+      - name: SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          KNOWN: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          H: ${{ secrets.DEPLOY_HOST }}
+          P: ${{ vars.DEPLOY_PORT || '22' }}
+          U: ${{ vars.DEPLOY_USER || 'cafino-deploy' }}
+          T: ${{ inputs.target }}
+          URL: ${{ vars.PUBLIC_URL }}
+        run: |
+          set -euo pipefail
+          [ -n "$KEY" ] && [ -n "$KNOWN" ] || { echo "::error::Secretهای SSH تنظیم نشده‌اند"; exit 1; }
+          umask 077; mkdir -p ~/.ssh; printf '%s\n' "$KEY" > ~/.ssh/k; printf '%s\n' "$KNOWN" > ~/.ssh/known_hosts
+          S() { ssh -i ~/.ssh/k -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=~/.ssh/known_hosts -p "$P" "$U@$H" "$@"; }
+          echo "پیش از بازگشت:"; S "status $T"
+          S "rollback $T"
+          echo "پس از بازگشت:"; S "status $T"
+          [ -z "$URL" ] || curl -fsS --retry 10 --retry-delay 5 --retry-connrefused --max-time 15 "$URL/healthz"
+          rm -f ~/.ssh/k

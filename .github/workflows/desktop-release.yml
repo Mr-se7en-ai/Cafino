@@ -1,0 +1,97 @@
+# ساخت نسخهٔ دسکتاپ ویندوز (Electron، x64، نصب‌کنندهٔ NSIS) و انتشار در GitHub Releases.
+#   • با push یک تگ v<نسخه> (مثلاً v1.87.0): ساخت + تست + ساخت Release (نسخه‌های قدیمی‌تر دست‌نخورده می‌مانند).
+#   • دستی (Run workflow): فقط ساخت و Artifact (Release نمی‌سازد).
+# بررسی سازگاری: نسخهٔ تگ = نسخهٔ برنامه (version.js) = نسخهٔ Electron = نسخهٔ API سرور (scripts/version.mjs check)، و خروجی Electron با PWA یکی است (verify:dist).
+# ⚠️ بدون گواهی امضای کد (Secretهای WIN_CSC_LINK و WIN_CSC_KEY_PASSWORD) نصب‌کننده «امضا‌نشده» است و ویندوز SmartScreen هشدار می‌دهد.
+# ⚠️ تست دودِ بستهٔ واقعی (electron-packaged-smoke) هنوز روی ویندوز واقعی اجرا نشده است؛ تا اولین اجرای موفق «اطلاعاتی» است
+#    (شکستش مانع Release نیست). پس از یک اجرای سبز، متغیر مخزن ELECTRON_SMOKE_REQUIRED=true را بگذارید تا اجباری شود.
+name: Desktop release
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npm run version:check
+      - name: تگ و نسخهٔ برنامه یکی باشد
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          V="$(node -e 'import("./scripts/version.mjs").then(m=>console.log(m.appVersion()))')"
+          [ "refs/tags/v$V" = "$GITHUB_REF" ] || { echo "::error::تگ ($GITHUB_REF) با نسخهٔ برنامه (v$V) نمی‌خواند"; exit 1; }
+      - run: npm run build
+      - run: npm run verify:dist
+      - name: تست‌ها (شامل تست‌های لایهٔ Electron/IPC و پل بومی)
+        run: npm test
+  windows:
+    needs: verify
+    runs-on: windows-2022
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm, cache-dependency-path: el/electron-app/package-lock.json }
+      - name: نصب وابستگی‌های Electron
+        working-directory: el/electron-app
+        run: npm ci
+      - name: ساخت نصب‌کنندهٔ ویندوز (NSIS x64)
+        working-directory: el/electron-app
+        shell: bash
+        env:
+          CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+        run: |
+          [ -n "${CSC_LINK:-}" ] || { echo "::warning::گواهی امضا تنظیم نشده؛ نصب‌کننده امضا‌نشده است (SmartScreen هشدار می‌دهد)"; export CSC_IDENTITY_AUTO_DISCOVERY=false; }
+          # shellcheck disable=SC2016  # ${version} را electron-builder جایگزین می‌کند، نه شل
+          npx electron-builder --win nsis --x64 --publish never -c.nsis.artifactName='CAFINO-Setup-${version}-x64.exe'
+      - name: بررسی خروجی
+        shell: bash
+        working-directory: el/electron-app
+        run: |
+          ls -la dist
+          test -f dist/CAFINO-Setup-*-x64.exe || { echo "::error::نصب‌کننده ساخته نشد"; exit 1; }
+          cd dist && sha256sum CAFINO-Setup-*-x64.exe > SHA256SUMS.txt && cat SHA256SUMS.txt
+      - name: تست دود بستهٔ واقعی (بدون نصب؛ اجرای win-unpacked)
+        continue-on-error: ${{ vars.ELECTRON_SMOKE_REQUIRED != 'true' }}
+        shell: bash
+        run: |
+          npm install --no-save playwright@^1.64.1 >/dev/null
+          EXE="$(find el/electron-app/dist/win-unpacked -maxdepth 1 -name '*.exe' ! -iname '*uninstall*' | head -1)"
+          echo "exe: $EXE"
+          node scripts/electron-packaged-smoke.cjs "$EXE"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cafino-windows-x64
+          path: |
+            el/electron-app/dist/CAFINO-Setup-*-x64.exe
+            el/electron-app/dist/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 30
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: windows
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write          # فقط همین job اجازهٔ ساخت Release دارد
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: { name: cafino-windows-x64, path: out }
+      - name: ساخت GitHub Release (نسخه‌های قبلی حفظ می‌شوند)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          VER="${TAG#v}"; NOTES="CHANGELOG-$VER-fa.md"
+          [ -f "$NOTES" ] || { echo "یادداشت انتشار $NOTES نیست؛ متن پیش‌فرض" ; printf 'کافینو %s — نسخهٔ دسکتاپ ویندوز (x64)\n\nSHA-256 در SHA256SUMS.txt.\n' "$VER" > "$NOTES"; }
+          if gh release view "$TAG" >/dev/null 2>&1; then gh release upload "$TAG" out/* --clobber
+          else gh release create "$TAG" out/* --title "کافینو $VER" --notes-file "$NOTES" --verify-tag; fi
