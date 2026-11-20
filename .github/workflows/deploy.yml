@@ -66,7 +66,7 @@ jobs:
     concurrency: { group: deploy-staging, cancel-in-progress: false }
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/deploy-bundle
         with:
           environment: staging
@@ -89,7 +89,7 @@ jobs:
     concurrency: { group: deploy-production, cancel-in-progress: false }
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/deploy-bundle
         with:
           environment: production
