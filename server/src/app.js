@@ -21,6 +21,7 @@ import { registerNews } from "./routes/news.js";
 import { registerPermissions } from "./routes/permissions.js";
 import { registerUploads } from "./routes/uploads.js";
 import { registerBots } from "./routes/bots.js";
+import { registerSms } from "./routes/sms.js";
 import { createBotService } from "./lib/bots.js";
 import { registerMiniapp } from "./routes/miniapp.js";
 import { createMiniappBot } from "./lib/miniappBot.js";
@@ -40,7 +41,7 @@ export const trustProxyOption = (v) => (typeof v === "number" ? (_addr, i) => i 
 
 const SERVER_VERSION = (() => { try { return JSON.parse(fs.readFileSync(new URL("../package.json", import.meta.url), "utf8")).version; } catch { return "unknown"; } })();
 
-export async function buildApp(cfg, { pool, logger = true } = {}) {
+export async function buildApp(cfg, { pool, logger = true, smsClient } = {}) {
   const app = Fastify({
     logger: logger ? { level: cfg.logLevel, redact: { paths: ["req.headers.authorization", "req.headers.cookie", "res.headers['set-cookie']"], censor: "[حذف شد]" } } : false,
     trustProxy: trustProxyOption(cfg.trustProxy), bodyLimit: cfg.bodyLimit, requestTimeout: 30000, connectionTimeout: 30000, keepAliveTimeout: 65000,
@@ -49,6 +50,7 @@ export async function buildApp(cfg, { pool, logger = true } = {}) {
   app.decorate("cfg", cfg);
   app.decorate("pool", pool);
   app.decorate("mailer", createMailer(cfg, app.log));
+  app.decorate("smsClient", smsClient || null);          // فقط تست: جایگزین کلاینت ملی پیامک
   app.removeContentTypeParser("text/plain");        // فقط JSON: فرم‌های بین‌سایتی (text/plain) هرگز پردازش نمی‌شوند → ۴۱۵
 
   await app.register(helmet, { contentSecurityPolicy: { directives: { defaultSrc: ["'none'"], frameAncestors: ["'none'"] } }, crossOriginResourcePolicy: { policy: "cross-origin" }, hsts: cfg.production });
@@ -152,6 +154,7 @@ export async function buildApp(cfg, { pool, logger = true } = {}) {
   app.addHook("onClose", async () => miniBot.stop());
   await registerMiniapp(app, miniBot);
   await registerMiniappCafeBots(app, miniBot, cafeBots);
+  await registerSms(app, smsClient ? { client: smsClient } : {});
   registerAdmin(app);
   return app;
 }

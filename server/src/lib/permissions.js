@@ -26,6 +26,8 @@ export const PERMISSIONS = {
   "upload.manage": "تنظیمات QR دریافت فایل (فعال/غیرفعال، سقف‌ها، تعویض کد)",
   "upload.bulk_delete": "حذف گروهی فایل‌های دریافتی از مشتری",
   "bot.manage": "اتصال و مدیریت ربات بله/تلگرام برای دریافت گزارش",
+  "sms.send": "ارسال پیامک به مشتریان (هزینه از اعتبار پنل ملی پیامک کافی‌نت)",
+  "sms.manage": "اتصال و مدیریت پنل ملی پیامک کافی‌نت",
 };
 export const PERMISSION_KEYS = Object.keys(PERMISSIONS);
 const ALL = new Set(PERMISSION_KEYS);

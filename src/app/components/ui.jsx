@@ -9,6 +9,7 @@ import { audit } from "../../audit/auditTrail.js";
 import { fmtM, toFA } from "../core/format.js";
 import { DonutChart } from "./charts.jsx";
 import { BTN, INP } from "../core/constants.js";
+import { PhoneVerifyCard } from "../../sms/PhoneVerifyCard.jsx";
 
 
 // ══════════════════════════════════════════════════════════════════
@@ -69,6 +70,8 @@ export function ProfilePanel({userEmail,onLogout,onPasswordChanged}){
           </div>
         </div>
       </div>
+
+      {isApiConnected()&&<PhoneVerifyCard/>}
 
       <div style={{background:"var(--bg-card)",borderRadius:12,padding:18}}>
         <div style={{fontSize:14,fontWeight:700,color:"var(--accent-light)",marginBottom:14}}>🔒 تغییر رمز عبور</div>
