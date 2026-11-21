@@ -194,6 +194,12 @@ export function createApiResources(client) {
       // «فراموشی رمز»: the server e-mails a one-time link/code (always answers 202 — it never reveals whether the e-mail exists)
       forgotPassword: payload => client.request("/api/auth/forgot-password", { method: "POST", body: payload }),
       resetPassword: payload => client.request("/api/auth/reset-password", { method: "POST", body: payload }),
+      // ورود/ثبت‌نام با کد پیامکی (ملی پیامک): config → کدام گزینه‌ها فعال است؛ send با کپچا؛ phone* برای تأیید شمارهٔ حساب واردشده
+      smsConfig: () => client.request("/api/auth/sms/config"),
+      smsSend: payload => client.request("/api/auth/sms/send", { method: "POST", body: payload }),
+      smsLogin: payload => client.request("/api/auth/sms/login", { method: "POST", body: payload }),
+      phoneSend: payload => client.request("/api/auth/phone/send", { method: "POST", body: payload }),
+      phoneVerify: payload => client.request("/api/auth/phone/verify", { method: "POST", body: payload }),
     },
     users: collection("/api/users"),
     customers: collection("/api/customers"),

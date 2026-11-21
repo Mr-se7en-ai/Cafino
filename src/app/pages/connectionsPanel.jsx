@@ -5,12 +5,14 @@ import { BTN } from "../core/constants.js";
 import BotsPage from "../../bots/BotsPage.jsx";
 import MiniappBotPage from "../../uploads/MiniappBotPage.jsx";
 import { AiAgentPanel } from "./aiAgent.jsx";
+import SmsSettingsPage from "../../sms/SmsSettingsPage.jsx";
 
 export const CONNECTION_TABS = [
   { key: "bale", label: "ربات بله", icon: "Send" },
   { key: "telegram", label: "ربات تلگرام", icon: "Send" },
   { key: "mini-telegram", label: "مینی‌اپ تلگرام", icon: "ShoppingBag" },    // 1.86: ربات مینی‌اپ اختصاصی هر کافی‌نت
   { key: "mini-bale", label: "مینی‌اپ بله", icon: "ShoppingBag" },
+  { key: "sms", label: "پیامک", icon: "Send" },                              // 1.88: ملی پیامک (ارسال به مشتریان)
   { key: "ai", label: "هوش مصنوعی", icon: "Sparkles" },
 ];
 export const normConnSub = (k) => (CONNECTION_TABS.some((t) => t.key === k) ? k : "bale");
@@ -26,7 +28,7 @@ export default function ConnectionsPanel({ sub, setSub }) {
           </button>
         ))}
       </div>
-      {cur === "ai" ? <AiAgentPanel /> : cur.startsWith("mini-") ? <MiniappBotPage key={cur} provider={cur.slice(5)} /> : <BotsPage key={cur} provider={cur} />}
+      {cur === "ai" ? <AiAgentPanel /> : cur === "sms" ? <SmsSettingsPage /> : cur.startsWith("mini-") ? <MiniappBotPage key={cur} provider={cur.slice(5)} /> : <BotsPage key={cur} provider={cur} />}
     </div>
   );
 }

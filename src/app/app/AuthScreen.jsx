@@ -10,6 +10,8 @@ import { BTN, INP } from "../core/constants.js";
 import { appFontFamily, themeVars } from "../core/theme.jsx";
 import { ForgotPasswordForm, RecoveryCodeNotice } from "./ForgotPassword.jsx";
 import { LoginCaptcha } from "./LoginCaptcha.jsx";
+import { SmsCodeBox } from "../../sms/SmsCodeBox.jsx";
+import { codeReady, isMobile, normalizeMobile, smsErrorText } from "../../sms/smsLogic.js";
 import { captchaPayload, captchaReady, isCaptchaCode } from "./loginCaptcha.js";
 import { APP_BRAND } from "../core/version.js";
 import { enterGuestMode } from "../../guest/guestMode.js";
@@ -44,6 +46,13 @@ export function AuthScreen({onLoggedIn,theme,customFont}){
   const [password2,setPassword2]=useState("");
   const [err,setErr]=useState("");
   const [busy,setBusy]=useState(false);
+  // ورود/ثبت‌نام با کد پیامکی (ملی پیامک): فقط اگر سرور حساب پیامک را تنظیم کرده باشد (GET /api/auth/sms/config)
+  const [smsCfg,setSmsCfg]=useState(null);               // {login,register,resendIn,...} | null
+  const [loginMethod,setLoginMethod]=useState("password"); // password | sms
+  const [smsCode,setSmsCode]=useState("");
+  useEffect(()=>{if(!remoteAuth)return undefined;let alive=true;apiResources.auth.smsConfig().then(c=>{if(alive)setSmsCfg(c||null);}).catch(()=>{});return()=>{alive=false;};},[remoteAuth]);
+  const smsRegister=remoteAuth&&mode==="register"&&Boolean(smsCfg?.register);
+  const smsLogin=remoteAuth&&mode==="login"&&Boolean(smsCfg?.login)&&loginMethod==="sms";
   // کپچای ورود: فقط بعد از چند شکست پیاپی (سرور تصمیم می‌گیرد)؛ هر چالش یک‌بارمصرف است و بعد از هر تلاش تازه می‌شود
   const [captcha,setCaptcha]=useState(null);            // {id,image} | null
   const [captchaLoading,setCaptchaLoading]=useState(false);
@@ -57,7 +66,30 @@ export function AuthScreen({onLoggedIn,theme,customFont}){
 
   const validEmail=(e)=>/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
 
+  // پایان مشترک ورود/ثبت‌نام سروری (رمز یا پیامک): نشست، هویت، دامنهٔ کافی‌نت
+  const finishRemote=async(authResult,label)=>{
+    setAuthSession(authResult);
+    const authIdentity=normalizeAuthUser(authResult);
+    if(authIdentity?.organizationId&&authIdentity?.branchId)writeTenantScope({organizationId:authIdentity.organizationId,branchId:authIdentity.branchId});
+    const me=await apiResources.auth.me();
+    const user=normalizeAuthUser(me)||normalizeAuthUser(authResult);
+    if(!user)throw new Error("سرور هویت کاربر را برنگرداند");
+    setAuthenticatedUser(user);
+    logActivity(label,"");
+    onLoggedIn(user);
+  };
+  const submitSms=async()=>{
+    setErr("");
+    if(!isMobile(phone)){setErr("شماره موبایل معتبر وارد کنید (مثال: ۰۹۱۲۳۴۵۶۷۸۹)");return;}
+    if(!codeReady(smsCode)){setErr("کد ۶رقمی پیامک‌شده را وارد کنید");return;}
+    setBusy(true);
+    try{await finishRemote(await apiResources.auth.smsLogin({phone:normalizeMobile(phone),code:smsCode}),"ورود سروری (پیامک)");}
+    catch(error){setErr(smsErrorText(error));}
+    setBusy(false);
+  };
+
   const submit=async()=>{
+    if(smsLogin)return submitSms();
     setErr("");
     if(mode==="register"){
       if(!firstName.trim()||!lastName.trim()){setErr("نام و نام خانوادگی را وارد کنید");return;}
@@ -67,6 +99,7 @@ export function AuthScreen({onLoggedIn,theme,customFont}){
     if(!validEmail(email)){setErr("ایمیل معتبر وارد کنید");return;}
     if(password.length<8){setErr("رمز عبور باید حداقل ۸ کاراکتر باشد");return;}
     if(mode==="register"&&password!==password2){setErr("تکرار رمز عبور مطابقت ندارد");return;}
+    if(smsRegister&&!codeReady(smsCode)){setErr("برای تأیید شماره، «ارسال کد پیامکی» را بزنید و کد ۶رقمی را وارد کنید");return;}
     if(remoteAuth&&mode==="login"&&!captchaReady(captcha,captchaAnswer)){setErr("عدد ۵ رقمی تصویر را وارد کنید");return;}
     setBusy(true);
     try{
@@ -76,16 +109,9 @@ export function AuthScreen({onLoggedIn,theme,customFont}){
         const payload=mode==="register"
           ?{email:emailKey,password,firstName:firstName.trim(),lastName:lastName.trim(),phone:phoneDigits}
           :{email:emailKey,password,...captchaPayload(captcha,captchaAnswer)};
+        if(smsRegister)payload.smsCode=smsCode;
         const authResult=mode==="register"?await apiResources.auth.register(payload):await apiResources.auth.login(payload);
-        setAuthSession(authResult);
-        const authIdentity=normalizeAuthUser(authResult);
-        if(authIdentity?.organizationId&&authIdentity?.branchId)writeTenantScope({organizationId:authIdentity.organizationId,branchId:authIdentity.branchId});
-        const me=await apiResources.auth.me();
-        const user=normalizeAuthUser(me)||normalizeAuthUser(authResult);
-        if(!user)throw new Error("سرور هویت کاربر را برنگرداند");
-        setAuthenticatedUser(user);
-        logActivity(mode==="register"?"ثبت‌نام سروری":"ورود سروری","");
-        onLoggedIn(user);
+        await finishRemote(authResult,mode==="register"?"ثبت‌نام سروری":"ورود سروری");
         setBusy(false);
         return;
       }
@@ -133,8 +159,8 @@ export function AuthScreen({onLoggedIn,theme,customFont}){
             onRecoveryCode={(code)=>setRecovery({code,title:"رمز تغییر کرد — کد بازیابی جدید",after:()=>{setRecovery(null);setMode("login");setPassword("");setNotice("رمز عبور تغییر کرد؛ با رمز جدید وارد شوید.");}})}/>
         ):(<>
         <div style={{display:"flex",gap:6,marginBottom:18,background:"var(--bg-app)",borderRadius:10,padding:4}}>
-          <button onClick={()=>{setMode("login");setErr("");}} style={{flex:1,background:mode==="login"?"#2563eb":"transparent",color:mode==="login"?"#fff":"var(--text-secondary)",border:"none",borderRadius:8,padding:"8px 0",cursor:"pointer",fontSize:13,fontWeight:600,fontFamily:"inherit"}}>ورود</button>
-          <button onClick={()=>{setMode("register");setErr("");}} style={{flex:1,background:mode==="register"?"#2563eb":"transparent",color:mode==="register"?"#fff":"var(--text-secondary)",border:"none",borderRadius:8,padding:"8px 0",cursor:"pointer",fontSize:13,fontWeight:600,fontFamily:"inherit"}}>ثبت‌نام</button>
+          <button onClick={()=>{setMode("login");setErr("");setSmsCode("");}} style={{flex:1,background:mode==="login"?"#2563eb":"transparent",color:mode==="login"?"#fff":"var(--text-secondary)",border:"none",borderRadius:8,padding:"8px 0",cursor:"pointer",fontSize:13,fontWeight:600,fontFamily:"inherit"}}>ورود</button>
+          <button onClick={()=>{setMode("register");setErr("");setSmsCode("");}} style={{flex:1,background:mode==="register"?"#2563eb":"transparent",color:mode==="register"?"#fff":"var(--text-secondary)",border:"none",borderRadius:8,padding:"8px 0",cursor:"pointer",fontSize:13,fontWeight:600,fontFamily:"inherit"}}>ثبت‌نام</button>
         </div>
 
         <div style={{display:"flex",flexDirection:"column",gap:12}}>
@@ -148,7 +174,15 @@ export function AuthScreen({onLoggedIn,theme,customFont}){
             <label style={{fontSize:13,color:"var(--text-secondary)"}}>شماره موبایل
               <input type="tel" inputMode="tel" autoComplete="tel" value={phone} onChange={e=>setPhone(e.target.value)} placeholder="۰۹۱۲۳۴۵۶۷۸۹" style={INP}/>
             </label>
+            {smsRegister&&<SmsCodeBox key="sms-register" testid="sms-register" purpose="register" phone={phone} code={smsCode} onCode={setSmsCode} send={apiResources.auth.smsSend} resendIn={smsCfg?.resendIn} submit={submit}/>}
           </>}
+          {smsLogin&&<>
+            <label style={{fontSize:13,color:"var(--text-secondary)"}}>شماره موبایل (تأییدشدهٔ حساب)
+              <input data-testid="sms-login-phone" type="tel" inputMode="tel" autoComplete="tel" value={phone} onChange={e=>setPhone(e.target.value)} placeholder="۰۹۱۲۳۴۵۶۷۸۹" style={INP} dir="ltr"/>
+            </label>
+            <SmsCodeBox key="sms-login" testid="sms-login" purpose="login" phone={phone} code={smsCode} onCode={setSmsCode} send={apiResources.auth.smsSend} resendIn={smsCfg?.resendIn} submit={submit}/>
+          </>}
+          {!smsLogin&&<>
           <label style={{fontSize:13,color:"var(--text-secondary)"}}>ایمیل
             <input type="email" value={email} onChange={e=>setEmail(e.target.value)} onKeyDown={e=>e.key==="Enter"&&submit()} placeholder="example@mail.com" style={INP} dir="ltr"/>
           </label>
@@ -160,11 +194,13 @@ export function AuthScreen({onLoggedIn,theme,customFont}){
               <input type="password" value={password2} onChange={e=>setPassword2(e.target.value)} onKeyDown={e=>e.key==="Enter"&&submit()} placeholder="••••••••" style={INP} dir="ltr"/>
             </label>
           )}
+          </>}
           {remoteAuth&&mode==="login"&&captcha&&<LoginCaptcha challenge={captcha} loading={captchaLoading} value={captchaAnswer} onChange={setCaptchaAnswer} onRefresh={loadCaptcha} onSubmit={submit}/>}
-          {mode==="login"&&<button data-testid="forgot-link" type="button" onClick={()=>{setMode("forgot");setErr("");setNotice("");}} style={{background:"transparent",border:"none",color:"var(--accent-light)",fontSize:12,cursor:"pointer",fontFamily:"inherit",textAlign:"right",padding:0,marginTop:-4}}>رمز عبور را فراموش کرده‌اید؟</button>}
+          {remoteAuth&&mode==="login"&&smsCfg?.login&&<button data-testid="sms-login-toggle" type="button" onClick={()=>{setLoginMethod(m=>m==="sms"?"password":"sms");setErr("");setSmsCode("");}} style={{background:"transparent",border:"1px dashed var(--accent-light)",borderRadius:8,color:"var(--accent-light)",fontSize:12.5,cursor:"pointer",fontFamily:"inherit",padding:"8px 10px"}}>{smsLogin?"ورود با ایمیل و رمز عبور":"📱 ورود با کد پیامکی"}</button>}
+          {mode==="login"&&!smsLogin&&<button data-testid="forgot-link" type="button" onClick={()=>{setMode("forgot");setErr("");setNotice("");}} style={{background:"transparent",border:"none",color:"var(--accent-light)",fontSize:12,cursor:"pointer",fontFamily:"inherit",textAlign:"right",padding:0,marginTop:-4}}>رمز عبور را فراموش کرده‌اید؟</button>}
           {notice&&<div data-testid="auth-notice" style={{background:"#052e16",border:"1px solid #16a34a44",borderRadius:8,padding:"8px 12px",fontSize:12,color:"#4ade80"}}>✓ {notice}</div>}
           {err&&<div style={{background:"#2d0a0a",border:"1px solid #dc262644",borderRadius:8,padding:"8px 12px",fontSize:12,color:"#f87171"}}>⚠️ {err}</div>}
-          <button onClick={submit} disabled={busy} style={{...BTN("#2563eb"),padding:11,fontSize:14,marginTop:6,opacity:busy?0.6:1}}>{busy?"در حال بررسی...":(mode==="login"?"ورود":"ثبت‌نام و ورود")}</button>
+          <button onClick={submit} disabled={busy} style={{...BTN("#2563eb"),padding:11,fontSize:14,marginTop:6,opacity:busy?0.6:1}}>{busy?"در حال بررسی...":(smsLogin?"ورود با کد":mode==="login"?"ورود":"ثبت‌نام و ورود")}</button>
         </div>
         <div style={{display:"flex",alignItems:"center",gap:10,margin:"18px 0 12px",color:"var(--text-dim)",fontSize:11}}><span style={{flex:1,height:1,background:"var(--border)"}}/>یا<span style={{flex:1,height:1,background:"var(--border)"}}/></div>
         <button data-testid="guest-login" type="button" onClick={()=>enterGuestMode()} style={{...BTN("var(--bg-app)","var(--text-primary)"),width:"100%",padding:11,fontSize:13,border:"1px dashed var(--accent-light)"}}>🧪 ورود مهمان (آزمایش برنامه)</button>

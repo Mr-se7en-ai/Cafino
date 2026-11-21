@@ -28,6 +28,7 @@ import { SaleWizard } from "./saleWizard.jsx";
 import { takeSearchFocus } from "../domain/search.js";
 import { PAY_METHODS, createId, emitDataChange, getSales, hasPendingFor, loadRemoteIds, lsRead, lsWrite, payLabel, saleRemaining, saveRemoteIds, useDataSync } from "../domain/sales.jsx";
 import { deriveIncomeCategoryOptions, useTariffData } from "./tariff.jsx";
+import SmsCustomersPage from "../../sms/SmsCustomersPage.jsx";
 import { Empty } from "../components/ui.jsx";
 
 
@@ -644,7 +645,7 @@ export function CustomersSection({pendingAction,clearPendingAction,onNavigate,fo
   const [orders,setOrders]=useOrders();
   const [quickOrderTitle,setQuickOrderTitle]=useState("");
   const [custTab,setCustTab]=useState("history");
-  const [listMode,setListMode]=useState("people"); // people | club | followups
+  const [listMode,setListMode]=useState("people"); // people | club | followups | golden | sms
   useEffect(()=>{if(forceMode){setListMode(forceMode);setView("list");clearForceMode&&clearForceMode();}},[forceMode]);  
   const [shopInfo]=useShopInfo();
   const photoRef=useRef();
@@ -1276,13 +1277,13 @@ export function CustomersSection({pendingAction,clearPendingAction,onNavigate,fo
     <div>
       {customerSyncNotice}
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
-        <div style={{display:"flex",gap:6}}>
-          {[["people",`👥 مشتریان (${toFA(customers.length)})`],["followups","🔔 پیگیری مشتریان"],["club","🏅 باشگاه مشتریان"],["golden","⭐ مشتریان طلایی"]].map(([k,l])=><button key={k} onClick={()=>setListMode(k)} data-testid={`mode-${k}`} style={{...BTN(listMode===k?"#2563eb":"var(--bg-card)",listMode===k?"#fff":"var(--text-secondary)"),padding:"8px 14px",fontSize:13}}>{l}</button>)}
+        <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+          {[["people",`👥 مشتریان (${toFA(customers.length)})`],["followups","🔔 پیگیری مشتریان"],["club","🏅 باشگاه مشتریان"],["golden","⭐ مشتریان طلایی"],["sms","📩 پیامک"]].map(([k,l])=><button key={k} onClick={()=>setListMode(k)} data-testid={`mode-${k}`} style={{...BTN(listMode===k?"#2563eb":"var(--bg-card)",listMode===k?"#fff":"var(--text-secondary)"),padding:"8px 14px",fontSize:13}}>{l}</button>)}
         </div>
         <button onClick={openAdd} style={BTN("#2563eb")}>+ مشتری جدید</button>
       </div>
 
-      {listMode==="followups"?<FollowUpsSection/>:listMode==="club"?<ClubOverview customers={customers} onOpen={(id)=>{setActiveId(id);setCustTab("club");setView("detail");}}/>:listMode==="golden"?<GoldenOverview customers={customers} onOpen={(id)=>{setActiveId(id);setCustTab("history");setView("detail");}}/>:<>
+      {listMode==="followups"?<FollowUpsSection/>:listMode==="club"?<ClubOverview customers={customers} onOpen={(id)=>{setActiveId(id);setCustTab("club");setView("detail");}}/>:listMode==="sms"?<SmsCustomersPage customers={customers}/>:listMode==="golden"?<GoldenOverview customers={customers} onOpen={(id)=>{setActiveId(id);setCustTab("history");setView("detail");}}/>:<>
 
       {allPendingFollowUps.length>0&&(
         <div style={{background:"#1e2a0a",border:"1px solid #a3a30a44",borderRadius:12,padding:"14px 18px",marginBottom:16}}>
