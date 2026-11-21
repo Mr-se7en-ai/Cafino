@@ -120,9 +120,24 @@ export function loadConfig(source = env) {
     miniappAuthRatePerMin: Math.max(5, int(e.MINIAPP_AUTH_RATE_PER_MIN, 30)),
     miniappPollIntervalMs: Math.max(1000, int(e.MINIAPP_POLL_INTERVAL_MS, 3000)),
     miniappCafeBotsPerTick: Math.min(100, Math.max(1, int(e.MINIAPP_CAFE_BOTS_PER_TICK, 10))),   // ربات‌های اختصاصی کافی‌نت‌ها (1.86): در هر دور حداکثر چند ربات پرسش شوند
+    // پیامک (ملی پیامک — melipayamak.com). حساب «پلتفرم» فقط از env می‌آید (هرگز در پایگاه‌داده/لاگ نیست) و برای کد ورود و تأیید موبایل در ثبت‌نام است.
+    // پیامک به مشتریان از حساب خود هر کافی‌نت (تنظیمات ← اتصال ← پیامک؛ رمزنگاری‌شده) ارسال می‌شود و به این env وابسته نیست.
+    smsUsername: String(e.MELIPAYAMAK_USERNAME || "").trim(),
+    smsPassword: String(e.MELIPAYAMAK_PASSWORD || ""),
+    smsFrom: String(e.MELIPAYAMAK_FROM || "").trim(),                // شمارهٔ خط ارسال (برای متن ساده)
+    smsOtpBodyId: String(e.MELIPAYAMAK_OTP_BODY_ID || "").trim(),    // کد الگوی (پترن) ارسال کد؛ اگر خالی باشد از متن ساده با MELIPAYAMAK_FROM استفاده می‌شود
+    smsApiBase: String(e.MELIPAYAMAK_API_BASE || "https://rest.payamak-panel.com/api/SendSMS").replace(/\/+$/, ""),
+    smsOtpTtlSec: Math.max(60, int(e.SMS_OTP_TTL_SEC, 300)),
+    smsOtpResendSec: Math.max(10, int(e.SMS_OTP_RESEND_SEC, 60)),
+    smsOtpMaxPerHour: Math.max(1, int(e.SMS_OTP_MAX_PER_HOUR, 5)),   // برای هر شماره
+    smsOtpMaxPerIpHour: Math.max(1, int(e.SMS_OTP_MAX_PER_IP_HOUR, 20)),
+    smsTimeoutMs: Math.max(2000, int(e.MELIPAYAMAK_TIMEOUT_MS, 12000)),
+    smsLoginEnabled: bool(e.SMS_LOGIN_ENABLED, true),                // ورود با کد پیامکی (فقط وقتی حساب پلتفرم تنظیم شده)
+    smsRegisterVerify: bool(e.SMS_REGISTER_VERIFY, true),            // تأیید موبایل با کد در ثبت‌نام (فقط وقتی حساب پلتفرم تنظیم شده)
     referenceChecks: /^(off|false|0)$/i.test(String(e.REFERENCE_CHECKS || "")) ? "off" : "strict",   // strict: ارجاع به مشتری/فاکتور ناموجود رد می‌شود (یتیم‌ساز نیست)
   };
   const problems = [];
+  cfg.smsPlatformOn = Boolean(cfg.smsUsername && cfg.smsPassword && (cfg.smsOtpBodyId || cfg.smsFrom));
   if (!cfg.databaseUrl) problems.push("DATABASE_URL تنظیم نشده است");
   if (!cfg.jwtSecret) problems.push("JWT_SECRET تنظیم نشده است");
   else if (cfg.jwtSecret.length < 32) problems.push("JWT_SECRET باید دست‌کم ۳۲ نویسه باشد (مثلاً: openssl rand -hex 48)");
@@ -137,6 +152,8 @@ export function loadConfig(source = env) {
   if (cfg.dbSslCaFile && cfg.dbSsl === "off") problems.push("DB_SSL_CA_FILE تنظیم شده ولی DB_SSL=false است؛ احتمالاً می‌خواستید DB_SSL=true بگذارید");
   if (cfg.miniappToken && !/^\d{3,16}:[A-Za-z0-9_:-]{16,100}$/.test(cfg.miniappToken)) problems.push("MINIAPP_BOT_TOKEN قالب توکن ربات را ندارد (مثلاً 123456789:AA…)");
   if (cfg.miniappToken && cfg.miniappUrl && production && !/^https:\/\//i.test(cfg.miniappUrl)) problems.push("MINIAPP_URL باید HTTPS باشد (تلگرام مینی‌اپ غیر HTTPS را باز نمی‌کند)");
+  if (!/^https:\/\//i.test(cfg.smsApiBase) && !/^http:\/\/(127\.0\.0\.1|localhost|\[::1\])(:\d+)?(\/|$)/i.test(cfg.smsApiBase)) problems.push("MELIPAYAMAK_API_BASE باید HTTPS باشد (رمز حساب پیامک در درخواست می‌رود)");
+  if ((cfg.smsUsername || cfg.smsPassword) && !cfg.smsPlatformOn) problems.push("حساب ملی پیامک ناقص است: MELIPAYAMAK_USERNAME و MELIPAYAMAK_PASSWORD و یکی از MELIPAYAMAK_OTP_BODY_ID یا MELIPAYAMAK_FROM لازم است");
   for (const k of ["offlineMaxAgeOwnerSec", "offlineMaxAgeStaffSec"]) if (cfg[k] < 300 || cfg[k] > 30 * 24 * 3600) problems.push(`OFFLINE_SESSION_MAX_AGE_* باید بین ۵ دقیقه و ۳۰ روز باشد (${k})`);
   // هشدارها: خطا نیستند ولی مدیر باید ببیند
   cfg.warnings = [];

@@ -6,6 +6,8 @@ import { HttpError, badRequest, conflict, invalid, unauthorized } from "../lib/e
 import { DUMMY_HASH, hashPassword, passwordProblem, randomCode, randomToken, safeEqual, sha256, signAccess, validEmail, verifyPassword } from "../lib/security.js";
 import { toText } from "../lib/validate.js";
 import { createLoginGuard } from "../lib/loginCaptcha.js";
+import { normalizeMobile, toLatinDigits } from "../lib/sms.js";
+import { registerSmsAuth } from "./smsAuth.js";
 
 const MAX_FAILS = 8, LOCK_MIN = 15;
 export const ROLE_PERMISSIONS = {
@@ -17,7 +19,7 @@ export function publicUser(u) {
   return {
     id: u.id, email: u.email, firstName: u.first_name, lastName: u.last_name, phone: u.phone, role: u.role,
     isOwner: u.role === "owner", organizationId: u.org_id, branchId: u.cafe_id, cafeId: u.cafe_id,
-    permissions: ROLE_PERMISSIONS[u.role] || [], mustChangePassword: u.must_change_password,
+    permissions: ROLE_PERMISSIONS[u.role] || [], mustChangePassword: u.must_change_password, phoneVerified: Boolean(u.phone_verified_at),
   };
 }
 
@@ -53,6 +55,18 @@ export function registerAuth(app) {
     const email = String(b.email || "").trim().toLowerCase();
     if (!validEmail(email)) throw invalid("ایمیل نامعتبر است");
     const pp = passwordProblem(b.password, email); if (pp) throw invalid(pp);
+    // تأیید موبایل با کد پیامکی (فقط وقتی حساب ملی پیامک پلتفرم تنظیم است؛ وگرنه رفتار قبلی بدون تغییر)
+    let phoneNorm = null;
+    if (cfg.smsPlatformOn && cfg.smsRegisterVerify) {
+      phoneNorm = normalizeMobile(b.phone);
+      if (!phoneNorm) throw invalid("شمارهٔ موبایل معتبر لازم است (مثلاً ۰۹۱۲۳۴۵۶۷۸۹)");
+      if (!/^\d{6}$/.test(toLatinDigits(b.smsCode).trim())) throw new HttpError(400, "sms_code_required", "کد پیامکی ۶رقمی را وارد کنید");
+      const dupFirst = await pool.query("SELECT email, phone_norm FROM users WHERE email=$1 OR phone_norm=$2", [email, phoneNorm]);
+      if (dupFirst.rows.some((r) => r.email === email)) throw conflict("این ایمیل قبلاً ثبت شده است", "email_taken");
+      if (dupFirst.rows[0]) throw conflict("این شماره قبلاً برای حساب دیگری ثبت شده است", "phone_taken");
+      const okCode = await app.smsOtp.consume({ purpose: "register", phone: phoneNorm, code: b.smsCode });
+      if (!okCode.ok) throw new HttpError(400, "invalid_code", "کد پیامکی نادرست یا منقضی شده است");
+    }
     const hash = await hashPassword(b.password);
     const result = await tx(pool, async (c) => {
       const dup = await c.query("SELECT 1 FROM users WHERE email=$1", [email]);
@@ -61,8 +75,8 @@ export function registerAuth(app) {
       const org = (await c.query("INSERT INTO organizations(name) VALUES ($1) RETURNING id", [shopName])).rows[0];
       const cafe = (await c.query("INSERT INTO cafes(org_id,name) VALUES ($1,$2) RETURNING id", [org.id, shopName])).rows[0];
       const user = (await c.query(
-        "INSERT INTO users(org_id,cafe_id,email,password_hash,first_name,last_name,phone,role) VALUES ($1,$2,$3,$4,$5,$6,$7,'owner') RETURNING *",
-        [org.id, cafe.id, email, hash, toText(b.firstName, { max: 100, key: "firstName" }), toText(b.lastName, { max: 100, key: "lastName" }), toText(b.phone, { max: 30, key: "phone" })])).rows[0];
+        "INSERT INTO users(org_id,cafe_id,email,password_hash,first_name,last_name,phone,role,phone_norm,phone_verified_at) VALUES ($1,$2,$3,$4,$5,$6,$7,'owner',$8,CASE WHEN $8::text IS NULL THEN NULL ELSE now() END) RETURNING *",
+        [org.id, cafe.id, email, hash, toText(b.firstName, { max: 100, key: "firstName" }), toText(b.lastName, { max: 100, key: "lastName" }), phoneNorm || toText(b.phone, { max: 30, key: "phone" }), phoneNorm])).rows[0];
       await audit(c, { cafeId: cafe.id, userId: user.id, action: "auth.register", entity: "user", entityId: user.id, ip: req.ip });
       return issueSession(c, user, req, reply);
     });
@@ -71,7 +85,7 @@ export function registerAuth(app) {
 
   // ── کپچای ورود: چالش بدون وضعیت (توکن امضاشده)، هر توکن یک‌بارمصرف و ۵ دقیقه‌ای ─────────────────────────────────────────────
   app.get("/api/auth/captcha", rate(30), async (req, reply) => {
-    if (!guard.enabled) return reply.code(404).send({ error: { code: "not_found", message: "کپچا فعال نیست" } });
+    if (!guard.enabled && !cfg.smsPlatformOn) return reply.code(404).send({ error: { code: "not_found", message: "کپچا فعال نیست" } });
     reply.header("Cache-Control", "no-store");
     return { data: guard.challenge() };
   });
@@ -207,5 +221,6 @@ export function registerAuth(app) {
     });
     return reply.code(204).send();
   });
+  registerSmsAuth(app, { guard, issueSession, rate });
   void badRequest;
 }
